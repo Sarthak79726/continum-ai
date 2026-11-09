@@ -1,0 +1,20 @@
+services:
+  # Backend + Frontend Unified Web Service (Docker)
+  - type: web
+    name: continuum-ai
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./continuum_ai.db
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: AI_PROVIDER
+        value: demo
+      - key: CHROMA_PERSIST_DIRECTORY
+        value: ./chroma_data
+      - key: UPLOAD_DIRECTORY
+        value: ./uploads
+

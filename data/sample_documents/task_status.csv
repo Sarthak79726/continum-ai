@@ -1,0 +1,7 @@
+Task ID,Module,Title,Status,Owner,Priority,Evidence Reference
+TSK-101,Authentication,JWT Token Auth & RBAC,Completed,Rahul,Critical,Verified in test suite and postman collection
+TSK-102,Payment,Payment Gateway API Integration,Blocked,Rahul,Critical,Awaiting merchant sandbox credentials
+TSK-103,Auth,Password Recovery & Reset Modal,Pending,Alex,High,Blocked by missing SMTP email credentials
+TSK-104,Database,SQLite to Postgres Schema Migration Script,Completed,Rahul,Medium,SQLAlchemy alembic models validated
+TSK-105,Frontend,Campus Dashboard Analytics View,In Progress,Sarah,Medium,Recharts visual components in development
+TSK-106,Security,Annual Student Data Privacy Audit,Pending,Rahul,High,Scheduled before term start

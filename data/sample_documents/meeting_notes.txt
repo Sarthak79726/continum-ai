@@ -1,0 +1,21 @@
+CAMPUS TECH SPRINT RETROSPECTIVE & HANDOVER MEETING NOTES
+Date: October 24, 2025
+Attendees: Rahul (Lead Developer), Sarah (Product Manager), Alex (Frontend Engineer)
+
+Key Discussion Points:
+1. Authentication module sign-off:
+   Rahul demonstrated user login and signup. The JWT validation has been thoroughly verified across all protected endpoints.
+   Decision: Approved for production staging.
+
+2. Payment Integration Blocker:
+   Rahul reported that payment integration is currently blocked. The payment gateway sandbox credentials have not been released by the Bursar's office.
+   Quote from Rahul: "We cannot test simulated credit card or UPI transactions until the finance department provides merchant test keys."
+   Action item: Sarah to follow up with campus finance director.
+
+3. Architecture Decisions:
+   - Rahul chose SQLite for local rapid prototyping and tests, designed with SQLAlchemy 2.0 to ensure zero-friction migration to PostgreSQL in production.
+   - Decided to adopt ChromaDB for campus directory semantic search over FAISS for simpler embedded lifecycle.
+
+4. Known Unresolved Questions:
+   - Who will manage the production SMTP server keys once Rahul departs on Friday?
+   - Contradiction noted: Sprint task board lists Password Recovery as 'Ready for QA', but backend documentation clearly shows email dispatch service is not yet configured.

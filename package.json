@@ -1,0 +1,22 @@
+{
+  "name": "continuum-ai",
+  "version": "1.0.0",
+  "description": "Continuum AI — Intelligent Knowledge Handover & Project Continuity Platform",
+  "scripts": {
+    "dev:backend": "uvicorn app.main:app --app-dir ./backend --reload --port 8000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "test:backend": "pytest backend/tests/test_backend.py"
+  },
+  "keywords": [
+    "knowledge-handover",
+    "rag",
+    "ai",
+    "fastapi",
+    "react",
+    "continuity"
+  ],
+  "author": "Continuum AI Team",
+  "license": "MIT"
+}
+
