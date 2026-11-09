@@ -82,3 +82,4 @@
 The existing `Dockerfile` combines the Vite build with Uvicorn. For high-availability enterprise environments:
 - **Frontend:** Serve built static assets via a CDN (Cloudflare / AWS CloudFront) backed by Nginx or S3 bucket storage.
 - **Backend:** Run FastAPI container behind Traefik or an AWS Application Load Balancer with health checks (`/health`), non-root container users, and horizontal pod autoscaling (HPA) in Kubernetes.
+

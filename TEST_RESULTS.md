@@ -125,3 +125,4 @@ backend/tests/test_audit_suite.py::test_12_settings_and_audit_logs PASSED       
   - `dist/assets/index-DPkGNDWB.css` (47.80 kB)
   - `dist/assets/index-DGF1U_cW.js` (854.87 kB)
 - **Status:** **0 Errors, 0 Warnings**. Production bundle verified and deployable.
+
