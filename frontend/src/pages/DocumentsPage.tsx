@@ -7,7 +7,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  FolderGit2
+  FolderGit2,
+  Download
 } from 'lucide-react';
 import { projectApi, documentApi } from '../services/api';
 import { Project, ProjectDocument, DocumentChunk } from '../types';
@@ -109,6 +110,22 @@ export const DocumentsPage: React.FC = () => {
       console.error(err);
     } finally {
       setLoadingChunks(false);
+    }
+  };
+
+  const handleDownload = async (doc: ProjectDocument) => {
+    try {
+      const blob = await documentApi.download(doc.id);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed', err);
     }
   };
 
@@ -237,6 +254,13 @@ export const DocumentsPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleDownload(doc)}
+                            className="p-1 text-slate-500 hover:text-teal-600 rounded hover:bg-slate-100"
+                            title="Download Original File"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => handleInspectChunks(doc)}
                             className="p-1 text-slate-500 hover:text-teal-600 rounded hover:bg-slate-100"

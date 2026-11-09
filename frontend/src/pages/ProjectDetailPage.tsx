@@ -180,6 +180,22 @@ export const ProjectDetailPage: React.FC = () => {
     }
   };
 
+  const handleDownloadDocument = async (doc: ProjectDocument) => {
+    try {
+      const blob = await documentApi.download(doc.id);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed', err);
+    }
+  };
+
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskTitle.trim()) return;
@@ -548,6 +564,13 @@ export const ProjectDetailPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleDownloadDocument(doc)}
+                            className="p-1 text-slate-500 hover:text-teal-600 rounded hover:bg-slate-100"
+                            title="Download Original Document"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             onClick={() => handleInspectChunks(doc)}
                             className="p-1 text-slate-500 hover:text-teal-600 rounded hover:bg-slate-100"

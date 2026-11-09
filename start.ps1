@@ -14,3 +14,4 @@ Write-Host "Both services are launching in separate windows." -ForegroundColor Y
 Write-Host "Frontend: http://localhost:5173" -ForegroundColor White
 Write-Host "Backend API: http://127.0.0.1:8000/docs" -ForegroundColor White
 Write-Host "Credentials: demo@continuum.ai / password123" -ForegroundColor Cyan
+

@@ -1,3 +1,4 @@
+import os
 import math
 import hashlib
 import re
@@ -8,19 +9,30 @@ from app.core.config import settings
 
 class ContinuumEmbeddingFunction(chromadb.EmbeddingFunction[Documents]):
     """
-    High-performance, standalone, deterministic semantic embedding function.
-    Produces 384-dimensional normalized dense vectors capturing:
-    - Lexical terms and subword n-grams
-    - Word position and inverse document term weighting
-    - Cosine similarity matching without requiring external network downloads.
-    Can also delegate to Gemini / OpenAI embedding API when API key is provided.
+    Genuine Semantic Neural Embedding Engine powered by SentenceTransformers ('all-MiniLM-L6-v2').
+    Produces 384-dimensional normalized dense vectors with real semantic clustering.
+    Includes fallback to local deterministic vector transformation if neural model fails to load.
     """
-    def __init__(self, dimension: int = 384, provider: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, dimension: int = 384, model_name: Optional[str] = None):
         self.dimension = dimension
-        self.provider = provider or settings.AI_PROVIDER
-        self.api_key = api_key or settings.AI_API_KEY
+        self.model_name = model_name or settings.EMBEDDING_MODEL or "all-MiniLM-L6-v2"
+        self._model = None
 
-    def _generate_dense_vector(self, text: str) -> List[float]:
+    def _get_model(self):
+        if self._model is None:
+            try:
+                from sentence_transformers import SentenceTransformer
+                # Try local cached weights first for speed & offline reliability
+                try:
+                    self._model = SentenceTransformer(self.model_name, local_files_only=True)
+                except Exception:
+                    self._model = SentenceTransformer(self.model_name)
+            except Exception as e:
+                print(f"[EmbeddingService Warning] Could not load SentenceTransformer: {e}. Using local fallback.")
+                self._model = False
+        return self._model if self._model is not False else None
+
+    def _generate_fallback_vector(self, text: str) -> List[float]:
         vec = [0.0] * self.dimension
         if not text:
             return vec
@@ -30,17 +42,13 @@ class ContinuumEmbeddingFunction(chromadb.EmbeddingFunction[Documents]):
         if not words:
             return vec
 
-        # Bag of words and character n-grams (bigrams & trigrams)
         for i, word in enumerate(words):
             decay = 1.0 / (math.log2(i + 2))
-            
-            # Full word hash
             h_word = int(hashlib.sha256(word.encode('utf-8')).hexdigest(), 16)
             idx_w = h_word % self.dimension
             sign_w = 1.0 if ((h_word >> 8) & 1) else -1.0
             vec[idx_w] += 2.0 * decay * sign_w
 
-            # Character 3-grams for morphological semantics (e.g., 'pay' in 'payment', 'paying')
             if len(word) >= 3:
                 for k in range(len(word) - 2):
                     ngram = word[k:k+3]
@@ -49,27 +57,24 @@ class ContinuumEmbeddingFunction(chromadb.EmbeddingFunction[Documents]):
                     sign_ng = 1.0 if ((h_ng >> 4) & 1) else -1.0
                     vec[idx_ng] += 0.8 * decay * sign_ng
 
-        # L2 normalization
         norm = math.sqrt(sum(x * x for x in vec))
         if norm > 0:
             return [x / norm for x in vec]
         return vec
 
     def __call__(self, input: Documents) -> Embeddings:
-        # Check if live Gemini API embedding is configured and accessible
-        if self.provider == "gemini" and self.api_key:
+        model = self._get_model()
+        if model is not None:
             try:
-                import httpx
-                # We can call Google Generative Language Embedding endpoint if needed
-                # Fallback to local vector if offline
-            except Exception:
-                pass
+                vectors = model.encode(list(input), normalize_embeddings=True)
+                return [v.tolist() for v in vectors]
+            except Exception as e:
+                print(f"[EmbeddingService Inference Error] {e}. Using local fallback.")
 
         embeddings: List[List[float]] = []
         for doc in input:
-            embeddings.append(self._generate_dense_vector(doc))
+            embeddings.append(self._generate_fallback_vector(doc))
         return embeddings
 
 def get_embedding_function() -> ContinuumEmbeddingFunction:
     return ContinuumEmbeddingFunction()
-

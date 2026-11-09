@@ -181,7 +181,30 @@ def delete_project(
     # Clean up ChromaDB collection
     vector_store.delete_project_collection(project.id)
 
+    # Clean up audit logs
+    db.query(AuditLog).filter(AuditLog.project_id == project.id).delete()
+
     db.delete(project)
     db.commit()
     return None
+
+@router.get("/{project_id}/audit-logs")
+def get_project_audit_logs(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = check_project_access(project_id, current_user, db)
+    logs = db.query(AuditLog).filter(
+        AuditLog.project_id == project.id
+    ).order_by(AuditLog.created_at.desc()).all()
+
+    return [{
+        "id": log.id,
+        "action": log.action,
+        "details": log.details,
+        "user_id": log.user_id,
+        "user_name": log.user.name if log.user else "System",
+        "created_at": log.created_at
+    } for log in logs]
 

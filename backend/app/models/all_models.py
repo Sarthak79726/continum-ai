@@ -80,6 +80,7 @@ class Project(Base):
     dependencies = relationship("Dependency", back_populates="project", cascade="all, delete-orphan")
     risks = relationship("Risk", back_populates="project", cascade="all, delete-orphan")
     handovers = relationship("HandoverReport", back_populates="project", cascade="all, delete-orphan")
+    audit_logs = relationship("AuditLog", back_populates="project", cascade="all, delete-orphan")
 
 class ProjectMembership(Base):
     __tablename__ = "project_memberships"
@@ -255,8 +256,11 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
     action = Column(String(100), nullable=False)
     details = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
+    project = relationship("Project", back_populates="audit_logs")
 

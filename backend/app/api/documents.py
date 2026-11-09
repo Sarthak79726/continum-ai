@@ -2,6 +2,7 @@ import os
 import shutil
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -198,6 +199,36 @@ def get_document_chunks(
 
     chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).order_by(DocumentChunk.chunk_index).all()
     return chunks
+
+@router.get("/documents/{document_id}/download")
+def download_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    check_project_access(doc.project_id, current_user, db)
+
+    if not os.path.exists(doc.storage_path):
+        raise HTTPException(status_code=404, detail="Document file does not exist on storage.")
+
+    media_types = {
+        "pdf": "application/pdf",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "csv": "text/csv",
+        "txt": "text/plain",
+        "md": "text/markdown"
+    }
+    media_type = media_types.get(doc.file_type.lower(), "application/octet-stream")
+
+    return FileResponse(
+        path=doc.storage_path,
+        filename=doc.filename,
+        media_type=media_type
+    )
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(

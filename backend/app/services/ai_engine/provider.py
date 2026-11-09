@@ -157,17 +157,19 @@ class DeterministicLocalExtractor(BaseLLMProvider):
                     if len(clean_line) < 6:
                         continue
 
-                    # Extract owner if specified (e.g. [Rahul], Owner: Rahul, Assigned: Sarah)
+                    # Extract owner dynamically if specified in source text
                     owner = "Unknown"
-                    owner_match = re.search(r'\b(owner|assigned|by|lead):\s*([A-Za-z]+)', clean_line, re.I)
+                    owner_match = re.search(r'\b(owner|assigned to|assigned|lead|developer|engineer|author):\s*([A-Za-z]+)', clean_line, re.I)
                     if owner_match:
-                        owner = owner_match.group(2)
-                    elif "rahul" in lower_line:
-                        owner = "Rahul"
-                    elif "sarah" in lower_line:
-                        owner = "Sarah"
-                    elif "alex" in lower_line:
-                        owner = "Alex"
+                        owner = owner_match.group(2).capitalize()
+                    else:
+                        bracket_match = re.search(r'\[([A-Za-z]{2,15})\]', clean_line)
+                        if bracket_match:
+                            owner = bracket_match.group(1).capitalize()
+                        else:
+                            by_match = re.search(r'\bby\s+([A-Z][a-z]+)', clean_line)
+                            if by_match and by_match.group(1).lower() not in ["the", "this", "our", "all"]:
+                                owner = by_match.group(1)
 
                     title_candidate = clean_line.split(" - ")[0].split(":")[0].strip()
                     if len(title_candidate) > 70:

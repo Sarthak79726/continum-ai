@@ -46,8 +46,8 @@ def get_project_knowledge_graph(
         if t.owner and t.owner not in ["Unknown", "Unassigned", "Incoming Engineer"]:
             persons.add(t.owner)
 
-    if not persons:
-        persons.add("Rahul (Lead Dev)")
+    if not persons and project.owner:
+        persons.add(project.owner.name)
 
     person_nodes = list(persons)
     for i, p_name in enumerate(person_nodes):
@@ -77,7 +77,9 @@ def get_project_knowledge_graph(
         ExtractedKnowledge.project_id == project.id,
         ExtractedKnowledge.category == "overview"
     ).first()
-    components = overview_entry.structured_content.get("important_technical_components", []) if overview_entry else ["FastAPI Backend", "React Frontend", "Payment API"]
+    components = []
+    if overview_entry and isinstance(overview_entry.structured_content, dict):
+        components = overview_entry.structured_content.get("important_technical_components", [])
 
     for i, comp in enumerate(components[:4]):
         c_id = f"comp_{i}"

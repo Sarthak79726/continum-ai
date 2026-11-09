@@ -20,6 +20,7 @@ class EvidenceVerifier:
     ) -> Evidence:
         """
         Records an inspected evidence passport item with grounded snippet link.
+        Strictly guarantees that unsupported claims are never marked VERIFIED.
         """
         # Resolve document ID if document_name is given
         doc_id = None
@@ -32,22 +33,55 @@ class EvidenceVerifier:
                 doc_id = doc.id
 
         if not doc_id:
-            # Fallback to any document in the project
             first_doc = self.db.query(Document).filter(Document.project_id == self.project_id).first()
-            doc_id = first_doc.id if first_doc else 1
+            if first_doc:
+                doc_id = first_doc.id
 
-        # Check if source_snippet genuinely exists in document text
+        if not doc_id:
+            raise ValueError(f"Cannot link evidence for project {self.project_id}: No source documents exist.")
+
+        # Grounding verification: Check if snippet exists in project document chunks
+        snippet_clean = source_snippet.strip() if source_snippet else ""
+        is_grounded = False
+        
+        if snippet_clean and len(snippet_clean) >= 10:
+            # Check if a 25-char key phrase exists in any chunk
+            search_prefix = snippet_clean[:35].lower()
+            candidate_chunks = self.db.query(DocumentChunk).filter(
+                DocumentChunk.project_id == self.project_id
+            ).all()
+            for c in candidate_chunks:
+                if search_prefix in c.extracted_text.lower():
+                    is_grounded = True
+                    if not chunk_id:
+                        chunk_id = c.id
+                    if not page_number and c.page_number:
+                        page_number = c.page_number
+                    break
+
+        # Verification Status Determination
         status_val = verification_status
-        if not source_snippet or source_snippet.lower() in ["unknown", "none", "not specified"]:
+        label_val = quality_label
+
+        if not snippet_clean or snippet_clean.lower() in ["unknown", "none", "not specified", "unverified"]:
             status_val = VerificationStatus.UNVERIFIED.value
-            quality_label = "Insufficient Context"
-        elif "conflicting" in source_snippet.lower() or "disagree" in source_snippet.lower():
+            label_val = "Insufficient Context"
+        elif "conflicting" in snippet_clean.lower() or "disagree" in snippet_clean.lower() or "discrepancy" in snippet_clean.lower():
             status_val = VerificationStatus.CONFLICTING.value
-            quality_label = "Conflicting"
-        elif len(source_snippet.strip()) > 15:
-            # Verified with direct source grounding
-            if status_val == "NEEDS_REVIEW" and "verified" in source_snippet.lower():
+            label_val = "Conflicting Evidence"
+        elif not is_grounded:
+            # Rule: NEVER mark unsupported claim as VERIFIED
+            if status_val == VerificationStatus.VERIFIED.value:
+                status_val = VerificationStatus.NEEDS_REVIEW.value
+                label_val = "Inferred (Pending Human Verification)"
+            elif status_val != VerificationStatus.CONFLICTING.value:
+                status_val = VerificationStatus.UNVERIFIED.value
+                label_val = "Ungrounded Citation"
+        else:
+            # Genuinely grounded in document text
+            if status_val == "NEEDS_REVIEW" and ("verified" in snippet_clean.lower() or "completed" in claim_text.lower()):
                 status_val = VerificationStatus.VERIFIED.value
+                label_val = "Direct Grounded Citation"
 
         evidence = Evidence(
             project_id=self.project_id,
@@ -55,10 +89,10 @@ class EvidenceVerifier:
             document_id=doc_id,
             chunk_id=chunk_id,
             claim_text=claim_text.strip(),
-            source_snippet=source_snippet.strip(),
+            source_snippet=snippet_clean,
             page_number=page_number or 1,
             verification_status=status_val,
-            quality_label=quality_label
+            quality_label=label_val
         )
         self.db.add(evidence)
         self.db.commit()
@@ -83,14 +117,13 @@ class EvidenceVerifier:
 
         for title, occurrences in status_map.items():
             if len(occurrences) > 1:
-                statuses = set(o.get("status") for o in occurrences)
+                statuses = set(o.get("status") for o in occurrences if o.get("status"))
                 if len(statuses) > 1:
                     conflicts.append({
-                        "question": f"Conflicting status reported for task: '{occurrences[0]['title']}'",
+                        "question": f"Contradiction detected: Task '{occurrences[0]['title']}' reported with conflicting statuses {list(statuses)} across documents.",
                         "category": "contradictory_information",
-                        "details": f"Discrepancy detected across sources: Reported statuses include {list(statuses)}.",
+                        "details": f"Discrepancy identified between {occurrences[0].get('source_document', 'Doc A')} and {occurrences[-1].get('source_document', 'Doc B')}.",
                         "source_document": occurrences[0].get("source_document", "Multiple Documents")
                     })
 
         return conflicts
-

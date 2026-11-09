@@ -64,6 +64,8 @@ export const projectApi = {
   update: (id: number, data: Partial<Project>) =>
     api.put<Project>(`/projects/${id}`, data).then((res) => res.data),
   delete: (id: number) => api.delete(`/projects/${id}`).then((res) => res.data),
+  getAuditLogs: (projectId: number) =>
+    api.get<any[]>(`/projects/${projectId}/audit-logs`).then((res) => res.data),
 };
 
 export const documentApi = {
@@ -77,6 +79,8 @@ export const documentApi = {
     api.post<ProjectDocument[]>(`/projects/${projectId}/documents`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((res) => res.data),
+  download: (id: number) =>
+    api.get(`/documents/${id}/download`, { responseType: 'blob' }).then((res) => res.data),
   delete: (id: number) =>
     api.delete(`/documents/${id}`).then((res) => res.data),
 };
@@ -157,6 +161,8 @@ export const demoApi = {
 export const settingsApi = {
   getStatus: () =>
     api.get<any>('/settings/status').then((res) => res.data),
+  update: (data: { ai_provider?: string; ai_api_key?: string; ai_model?: string }) =>
+    api.put<any>('/settings', data).then((res) => res.data),
 };
 
 export default api;

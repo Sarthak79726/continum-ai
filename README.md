@@ -37,8 +37,9 @@ Continuum AI implements the **5 Epistemic Stages**:
 | **Backend API** | Python 3.11+ / FastAPI | High-concurrency REST API, dependency injection, async pipelines |
 | **Database** | SQLite + SQLAlchemy 2.0 | Clean local persistence with direct PostgreSQL parity |
 | **Vector Database** | ChromaDB Persistent Store | Project-isolated semantic vector collections |
-| **Embeddings** | Modular 384-dim Dense Hashing / Transformers | Standalone, zero-network-dependency semantic vector embeddings |
-| **Document Processing** | PyMuPDF, python-docx, pandas | Multi-format text extraction, cleaning, and sliding chunker |
+| **Embeddings** | HuggingFace SentenceTransformers (`all-MiniLM-L6-v2`) | Genuine 384-dim neural dense semantic vectors with offline caching |
+| **Database Migrations** | Alembic | Version-controlled schema migrations & forward compatibility |
+| **Document Processing** | PyMuPDF, python-docx, pandas | Multi-format text extraction, OCR capability, and sliding chunker |
 | **Report Generation** | ReportLab | High-fidelity downloadable PDF handover dossiers |
 | **Authentication** | PyJWT + Bcrypt | Role-Based Access Control (Admin, PM, Member, Incoming) |
 
@@ -124,15 +125,16 @@ Continuum AI implements the **5 Epistemic Stages**:
    - 8 Tabs: Overview, Documents, Tasks, Decisions, Dependencies, Risks, Knowledge Graph, Handovers.
    - Prominent **ANALYSE PROJECT** button triggering the AI knowledge reconstruction pipeline.
 5. **Document Ingestion (`/documents`)**:
-   - Drag-and-drop multi-file upload for PDF, DOCX, TXT, and CSV.
+   - Drag-and-drop multi-file upload for PDF, DOCX, TXT, and CSV with OCR support for scanned pages.
    - Real-time status: `uploaded`, `processing`, `processed`, `failed`.
-   - Chunk inspection modal displaying extracted text chunks and page numbers.
+   - Native document download (`GET /api/documents/:id/download`) and text chunk inspection.
 6. **Knowledge Graph (`/graph`)**:
-   - Interactive SVG relationship canvas visualizing People (Rahul, Sarah), Projects, Technical Components, Tasks, Decisions, Risks, and Dependencies.
+   - Interactive SVG relationship canvas dynamically synthesizing Project Members, Technical Components, Tasks, Decisions, Risks, and Dependencies from live database records.
    - Zoom, Pan, Reset controls, Category filtering, and detailed node inspector drawer.
 7. **Evidence Passport (`/evidence`)**:
    - EPISTEMIC GROUNDING: Every AI-extracted claim displays its supporting document, page number, and exact text snippet.
-   - Understandable quality labels: *Direct Citation*, *Inferred*, *Conflicting*, *Insufficient Context* (no arbitrary uncalibrated percentages).
+   - Grounding validation rules: claims lacking source verification cannot be marked `VERIFIED`.
+   - Quality labels: *Direct Citation*, *Inferred*, *Conflicting*, *Insufficient Context*.
    - Human audit modal allowing authorized reviewers to update verification status.
 8. **Continuity Blueprint (`/tasks`)**:
    - Prioritized continuation plan for the incoming developer.
@@ -147,9 +149,10 @@ Continuum AI implements the **5 Epistemic Stages**:
     - Explicit sign-off workflows: reports cannot be marked approved without reviewer action.
 11. **Team & Access Governance (`/team`)**:
     - Backend-enforced Role-Based Access Control (`ADMIN`, `PROJECT_MANAGER`, `TEAM_MEMBER`, `INCOMING_MEMBER`).
-    - Project membership assignment and role management.
+    - Project membership assignment and role management with project isolation.
 12. **Settings & Telemetry (`/settings`)**:
-    - Live AI provider status, model name, ChromaDB storage path, and database info.
+    - Dynamic runtime switching between Gemini, OpenAI, and local demonstration AI providers.
+    - API key and model persistence via `PUT /api/settings` and real-time backend ping telemetry.
 
 ---
 
@@ -189,8 +192,11 @@ cp .env.example .env
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Run backend tests to verify environment
-pytest backend/tests/test_backend.py
+# Run database migrations
+alembic upgrade head
+
+# Run automated audit test suite (12 core workflows)
+pytest backend/tests/test_audit_suite.py
 ```
 
 ### Step 3: Frontend Setup
