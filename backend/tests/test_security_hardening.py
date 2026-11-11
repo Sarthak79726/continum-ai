@@ -398,3 +398,56 @@ def test_production_security_validation():
     with pytest.raises(RuntimeError) as exc_jwt:
         jwt_bad.validate_production_security()
     assert "jwt_secret_key" in str(exc_jwt.value).lower()
+
+# --- 12. CORS Origins Flexible Parsing & Optional Variables Tests ---
+def test_cors_origins_parsing_formats():
+    import os
+
+    # A. Comma-separated string format (common in Render / env variables)
+    os.environ["CORS_ORIGINS"] = "http://localhost:5173, http://127.0.0.1:5173, https://continuum-ai.onrender.com"
+    try:
+        s1 = Settings()
+        assert isinstance(s1.CORS_ORIGINS, list)
+        assert len(s1.CORS_ORIGINS) == 3
+        assert "https://continuum-ai.onrender.com" in s1.CORS_ORIGINS
+        assert "http://localhost:5173" in s1.CORS_ORIGINS
+    finally:
+        del os.environ["CORS_ORIGINS"]
+
+    # B. JSON Array string format
+    os.environ["CORS_ORIGINS"] = '["https://continuum-ai.onrender.com", "http://localhost:5173"]'
+    try:
+        s2 = Settings()
+        assert isinstance(s2.CORS_ORIGINS, list)
+        assert len(s2.CORS_ORIGINS) == 2
+        assert "https://continuum-ai.onrender.com" in s2.CORS_ORIGINS
+    finally:
+        del os.environ["CORS_ORIGINS"]
+
+    # C. Single string URL
+    os.environ["CORS_ORIGINS"] = "https://continuum-ai.onrender.com"
+    try:
+        s3 = Settings()
+        assert s3.CORS_ORIGINS == ["https://continuum-ai.onrender.com"]
+    finally:
+        del os.environ["CORS_ORIGINS"]
+
+    # D. Missing optional environment variables do not crash startup
+    s_default = Settings()
+    assert s_default.AI_API_KEY == ""
+    assert s_default.ENVIRONMENT in ["development", "production", "staging"]
+    assert len(s_default.CORS_ORIGINS) >= 1
+
+    # E. Render auto-whitelisting in production
+    os.environ["RENDER_EXTERNAL_HOSTNAME"] = "continuum-ai.onrender.com"
+    try:
+        s_render = Settings(
+            ENVIRONMENT="production",
+            JWT_SECRET_KEY="a" * 64,
+            CORS_ORIGINS=["http://localhost:5173"]
+        )
+        s_render.validate_production_security()
+        assert "https://continuum-ai.onrender.com" in s_render.CORS_ORIGINS
+    finally:
+        del os.environ["RENDER_EXTERNAL_HOSTNAME"]
+

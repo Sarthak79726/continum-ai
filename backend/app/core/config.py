@@ -1,7 +1,8 @@
 import os
-from typing import List
+import json
+from typing import List, Union
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Continuum AI"
@@ -29,12 +30,32 @@ class Settings(BaseSettings):
     UPLOAD_DIRECTORY: str = "./uploads"
     MAX_UPLOAD_SIZE: int = 20 * 1024 * 1024  # 20 MB
 
-    CORS_ORIGINS: List[str] = [
+    CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000"
     ]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v):
+        """Allows CORS_ORIGINS to be configured as a JSON array string, comma-separated string, or Python list."""
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return []
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+                except Exception:
+                    pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        elif isinstance(v, (list, tuple, set)):
+            return [str(item).strip() for item in v if str(item).strip()]
+        return v
 
     model_config = {
         "env_file": ".env",
@@ -77,6 +98,9 @@ class Settings(BaseSettings):
                     "CRITICAL SECURITY FAILURE: Insecure or default JWT_SECRET_KEY detected in production. "
                     "You must provide a high-entropy secret key of at least 32 characters via environment variable."
                 )
+
+            if isinstance(self.CORS_ORIGINS, str):
+                self.CORS_ORIGINS = [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
             if "*" in self.CORS_ORIGINS:
                 raise RuntimeError(
