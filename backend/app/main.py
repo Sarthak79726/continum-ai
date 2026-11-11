@@ -23,6 +23,10 @@ from app.api.team import router as team_router
 from app.api.analytics import router as analytics_router
 from app.api.demo import router as demo_router
 from app.api.settings import router as settings_router
+from app.api.employees import router as employees_router
+from app.api.sources import router as sources_router
+from app.api.conflicts import router as conflicts_router
+from app.api.ask_ai import router as ask_ai_router
 
 # Initialize DB tables and seed default admin
 Base.metadata.create_all(bind=engine)
@@ -76,6 +80,10 @@ app.include_router(team_router, prefix=settings.API_V1_STR)
 app.include_router(analytics_router, prefix=settings.API_V1_STR)
 app.include_router(demo_router, prefix=settings.API_V1_STR)
 app.include_router(settings_router, prefix=settings.API_V1_STR)
+app.include_router(employees_router, prefix=settings.API_V1_STR)
+app.include_router(sources_router, prefix=settings.API_V1_STR)
+app.include_router(conflicts_router, prefix=settings.API_V1_STR)
+app.include_router(ask_ai_router, prefix=settings.API_V1_STR)
 
 @app.get("/api/health")
 def health_check():

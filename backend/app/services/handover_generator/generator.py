@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 
 from app.models.all_models import (
     Project, HandoverReport, Task, Decision, Risk, Dependency,
-    ExtractedKnowledge, Evidence, Document, User
+    ExtractedKnowledge, Evidence, Document, User,
+    EmployeeProfile, APIEndpointRecord, DatabaseSchemaRecord,
+    BugDebtItem, BlockerItem, KnowledgeGapItem, ContinuationActionItem
 )
 
 def build_handover_content(
@@ -48,6 +50,28 @@ def build_handover_content(
     ).first()
     unresolved_questions = questions_entry.structured_content if questions_entry else []
 
+    # Query employee profile data if available
+    employees = db.query(EmployeeProfile).filter(EmployeeProfile.project_id == project.id).all()
+    apis = db.query(APIEndpointRecord).filter(APIEndpointRecord.project_id == project.id).all()
+    schemas = db.query(DatabaseSchemaRecord).filter(DatabaseSchemaRecord.project_id == project.id).all()
+    bugs = db.query(BugDebtItem).filter(BugDebtItem.project_id == project.id).all()
+    blockers = db.query(BlockerItem).filter(BlockerItem.project_id == project.id).all()
+    knowledge_gaps = db.query(KnowledgeGapItem).filter(KnowledgeGapItem.project_id == project.id).all()
+    action_items = db.query(ContinuationActionItem).filter(ContinuationActionItem.project_id == project.id).all()
+
+    # Team roles from DB or fallback
+    if employees:
+        team_roles = [
+            {"role": emp.role_title, "name": emp.name, "responsibility": ", ".join(emp.responsibilities) if isinstance(emp.responsibilities, list) else str(emp.responsibilities)}
+            for emp in employees
+        ]
+    else:
+        team_roles = [
+            {"role": "Outgoing Developer", "name": "Rahul", "responsibility": "Authentication, Payment Gateway API, Database Setup"},
+            {"role": "Incoming Member", "name": "Successor Engineer", "responsibility": "Complete Payment Sandbox Integration & Testing"},
+            {"role": "Project Owner", "name": project.owner.name if project.owner else "Admin", "responsibility": "Sprint Review & Architecture Sign-off"}
+        ]
+
     # Format 14 Sections
     sections = {
         "metadata": {
@@ -69,11 +93,7 @@ def build_handover_content(
         },
         "3_team_responsibilities": {
             "title": "3. Team & Ownership Map",
-            "roles": [
-                {"role": "Outgoing Developer", "name": "Rahul", "responsibility": "Authentication, Payment Gateway API, Database Setup"},
-                {"role": "Incoming Member", "name": "Successor Engineer", "responsibility": "Complete Payment Sandbox Integration & Testing"},
-                {"role": "Project Owner", "name": project.owner.name if project.owner else "Admin", "responsibility": "Sprint Review & Architecture Sign-off"}
-            ]
+            "roles": team_roles
         },
         "4_completed_work": {
             "title": "4. Completed Work & Verified Milestones",
@@ -113,18 +133,41 @@ def build_handover_content(
             } for d in decisions]
         },
         "8_technical_architecture": {
-            "title": "8. Technical Architecture Summary",
+            "title": "8. Technical Architecture & API Inventory",
             "components": overview_data.get("important_technical_components", []),
-            "stack_summary": "FastAPI, React TypeScript, SQLite/PostgreSQL, ChromaDB semantic vector index, JWT Auth."
+            "stack_summary": "FastAPI, React TypeScript, SQLite/PostgreSQL, ChromaDB semantic vector index, JWT Auth.",
+            "api_inventory": [{
+                "endpoint": f"{a.method} {a.endpoint_path}",
+                "status": a.implementation_status,
+                "module": a.backend_module,
+                "coverage": a.test_coverage_status
+            } for a in apis] if apis else [],
+            "database_models": [{
+                "model": s.model_name,
+                "table": s.table_name,
+                "is_pending": s.is_pending
+            } for s in schemas] if schemas else []
         },
         "9_risks_and_blockers": {
-            "title": "9. Critical Risks & Blockers",
+            "title": "9. Critical Risks, Bugs & Blockers",
             "items": [{
                 "title": r.title,
                 "description": r.description,
                 "severity": r.severity,
                 "resolution": r.suggested_resolution
-            } for r in risks]
+            } for r in risks],
+            "unresolved_bugs": [{
+                "code": b.issue_code,
+                "title": b.title,
+                "classification": b.classification,
+                "severity": b.severity,
+                "action": b.recommended_next_action
+            } for b in bugs] if bugs else [],
+            "active_blockers": [{
+                "title": blk.title,
+                "dependency": blk.external_dependency,
+                "assistance": blk.required_assistance
+            } for blk in blockers] if blockers else []
         },
         "10_dependencies": {
             "title": "10. Task & System Dependencies",
@@ -135,16 +178,23 @@ def build_handover_content(
             } for dep in dependencies]
         },
         "11_unresolved_questions": {
-            "title": "11. Unresolved Questions & Contradictions",
-            "items": unresolved_questions
+            "title": "11. Unresolved Questions & Knowledge Gaps",
+            "items": unresolved_questions,
+            "knowledge_gaps": [{
+                "title": g.title,
+                "category": g.category,
+                "severity": g.severity
+            } for g in knowledge_gaps] if knowledge_gaps else []
         },
         "12_recommended_next_actions": {
             "title": "12. Continuity Blueprint — Actionable Next Steps",
-            "items": [t.title for t in recommendations] if recommendations else [
-                "Obtain payment gateway sandbox credentials from finance department",
-                "Complete webhook payment callback validation logic",
-                "Execute end-to-end user signup and checkout test suite"
-            ]
+            "items": [f"[{act.phase}] {act.title}: {act.description}" for act in action_items] if action_items else (
+                [t.title for t in recommendations] if recommendations else [
+                    "Obtain payment gateway sandbox credentials from finance department",
+                    "Complete webhook payment callback validation logic",
+                    "Execute end-to-end user signup and checkout test suite"
+                ]
+            )
         },
         "13_supporting_evidence": {
             "title": "13. Supporting Evidence Passport",

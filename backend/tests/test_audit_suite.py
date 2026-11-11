@@ -15,7 +15,8 @@ from app.core.security import get_password_hash, verify_password, create_access_
 from app.core.dependencies import check_project_access
 from app.schemas.all_schemas import (
     UserRegister, UserLogin, ProjectCreate, ProjectUpdate, TaskCreate, TaskUpdate,
-    HandoverCreate, ReviewCreate, EvidenceVerifyRequest
+    HandoverCreate, ReviewCreate, EvidenceVerifyRequest, HandoverInitiateRequest,
+    HandoverAcknowledgeRequest, AskProjectAIRequest
 )
 from app.api.auth import register, login
 from app.api.projects import list_projects, create_project, get_project, update_project, delete_project, get_project_audit_logs
@@ -24,6 +25,13 @@ from app.api.evidence import get_project_evidence, update_evidence_status
 from app.api.graph import get_project_knowledge_graph
 from app.api.handovers import generate_handover_report, get_handover_report, approve_handover_report, reject_handover_report, export_handover_pdf
 from app.api.settings import get_system_settings_status, update_system_settings, SettingsUpdate
+from app.api.employees import (
+    list_project_employees, get_employee_passport, reconstruct_employee_knowledge,
+    initiate_employee_handover, acknowledge_employee_handover, toggle_continuation_action
+)
+from app.api.sources import list_project_sources
+from app.api.conflicts import list_project_conflicts, resolve_conflict, ConflictResolveRequest
+from app.api.ask_ai import ask_project_ai
 from app.services.document_processor.pipeline import process_document_file
 from app.services.sample_data.generator import generate_sample_files_on_disk, load_sample_dataset
 from app.services.embeddings.embedding_service import get_embedding_function
@@ -272,3 +280,91 @@ def test_12_settings_and_audit_logs(db_session: Session, admin_user: User):
     logs = get_project_audit_logs(proj_id, db=db_session, current_user=admin_user)
     assert len(logs) >= 1
     assert any("RECONSTRUCTION" in log["action"] or "PROJECT" in log["action"] for log in logs)
+
+def test_13_employee_passport_and_reconstruction(db_session: Session, admin_user: User):
+    projects = list_projects(db=db_session, current_user=admin_user)
+    proj_id = projects[0].id
+    employees = list_project_employees(proj_id, db=db_session, current_user=admin_user)
+    assert len(employees) >= 1
+
+    rahul = next((e for e in employees if "rahul" in e.name.lower()), employees[0])
+    passport = get_employee_passport(rahul.id, db=db_session, current_user=admin_user)
+
+    assert passport["employee"].id == rahul.id
+    assert len(passport["commits"]) >= 1
+    assert len(passport["api_endpoints"]) >= 1
+    assert len(passport["bugs_and_debt"]) >= 1
+    assert len(passport["blockers"]) >= 1
+    assert len(passport["continuation_plan"]) >= 1
+
+def test_14_handover_initiation_and_acknowledgement(db_session: Session, admin_user: User):
+    projects = list_projects(db=db_session, current_user=admin_user)
+    proj_id = projects[0].id
+    employees = list_project_employees(proj_id, db=db_session, current_user=admin_user)
+    rahul = next((e for e in employees if "rahul" in e.name.lower()), employees[0])
+    maya = next((e for e in employees if "maya" in e.name.lower()), employees[-1])
+
+    # Initiate handover
+    req_init = HandoverInitiateRequest(
+        departing_employee_id=rahul.id,
+        successor_id=maya.id,
+        notes="Transitioning backend core token revocation and bulk endpoints"
+    )
+    init_res = initiate_employee_handover(rahul.id, req_init, db=db_session, current_user=admin_user)
+    assert init_res["status"] == "success"
+
+    # Successor acknowledges handover
+    req_ack = HandoverAcknowledgeRequest(
+        comments="Formally accepted custody of auth services and attendance schema"
+    )
+    ack_res = acknowledge_employee_handover(rahul.id, req_ack, db=db_session, current_user=admin_user)
+    assert ack_res["status"] == "success"
+    assert ack_res["acknowledged_at"] is not None
+
+    # Toggle a checklist item
+    passport = get_employee_passport(rahul.id, db=db_session, current_user=admin_user)
+    if passport["continuation_plan"]:
+        first_item = passport["continuation_plan"][0]
+        initial_completed = first_item.is_completed
+        toggled = toggle_continuation_action(first_item.id, db=db_session, current_user=admin_user)
+        assert toggled.is_completed != initial_completed
+
+def test_15_source_connection_and_conflicts(db_session: Session, admin_user: User):
+    projects = list_projects(db=db_session, current_user=admin_user)
+    proj_id = projects[0].id
+
+    sources = list_project_sources(proj_id, db=db_session, current_user=admin_user)
+    assert len(sources) >= 1
+    assert sources[0].source_type == "github"
+
+    conflicts = list_project_conflicts(proj_id, db=db_session, current_user=admin_user)
+    assert len(conflicts) >= 1
+
+    open_conflict = next((c for c in conflicts if c.resolution_status == "open"), conflicts[0])
+    resolved = resolve_conflict(
+        open_conflict.id,
+        ConflictResolveRequest(resolution_notes="Authoritative verdict: Redis connection is failing under load. Kept ticket open."),
+        db=db_session,
+        current_user=admin_user
+    )
+    assert resolved.resolution_status == "resolved"
+    assert resolved.resolved_by == admin_user.name
+
+def test_16_ask_project_ai_grounded_rag(db_session: Session, admin_user: User):
+    projects = list_projects(db=db_session, current_user=admin_user)
+    proj_id = projects[0].id
+    employees = list_project_employees(proj_id, db=db_session, current_user=admin_user)
+    rahul = next((e for e in employees if "rahul" in e.name.lower()), employees[0])
+
+    # Ask question about active bugs and technical debt
+    req = AskProjectAIRequest(
+        project_id=proj_id,
+        question="What are the active unresolved bugs and technical debt items?",
+        employee_id=rahul.id,
+        role_scope="BACKEND"
+    )
+    ans = ask_project_ai(req, db=db_session, current_user=admin_user)
+    assert ans["confidence"] in ["HIGH", "MEDIUM", "LOW", "INSUFFICIENT_EVIDENCE"]
+    assert len(ans["citations"]) >= 1
+    assert any("bug" in ans["answer"].lower() or "debt" in ans["answer"].lower() or "unresolved" in ans["answer"].lower() for _ in [1])
+

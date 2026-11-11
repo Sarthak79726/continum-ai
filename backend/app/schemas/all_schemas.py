@@ -344,3 +344,277 @@ class DashboardStats(BaseModel):
     task_completion_distribution: List[Dict[str, Any]] = []
     risk_severity_distribution: List[Dict[str, Any]] = []
 
+# --- EMPLOYEE KNOWLEDGE PASSPORT & CODE INTELLIGENCE SCHEMAS ---
+
+class EmployeeProfileBase(BaseModel):
+    name: str
+    employee_id_code: Optional[str] = None
+    role_title: str
+    department: Optional[str] = "Engineering"
+    responsibilities: List[str] = []
+    date_joined: Optional[str] = None
+    handover_initiation_date: Optional[str] = None
+    assigned_successor_id: Optional[int] = None
+    handover_status: str = "ACTIVE"
+    last_activity_date: Optional[str] = None
+    contribution_summary: Optional[str] = None
+
+class EmployeeProfileCreate(EmployeeProfileBase):
+    project_id: int
+    user_id: Optional[int] = None
+
+class EmployeeProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    employee_id_code: Optional[str] = None
+    role_title: Optional[str] = None
+    department: Optional[str] = None
+    responsibilities: Optional[List[str]] = None
+    handover_initiation_date: Optional[str] = None
+    assigned_successor_id: Optional[int] = None
+    handover_status: Optional[str] = None
+    last_activity_date: Optional[str] = None
+    contribution_summary: Optional[str] = None
+
+class EmployeeProfileResponse(EmployeeProfileBase):
+    id: int
+    project_id: int
+    user_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    successor_name: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+class CommitRecordResponse(BaseModel):
+    id: int
+    project_id: int
+    employee_id: int
+    commit_hash: str
+    message: str
+    branch: str
+    changed_files: List[str] = []
+    insertions: int = 0
+    deletions: int = 0
+    is_merged: bool = True
+    has_tests: bool = False
+    affected_modules: List[str] = []
+    timestamp: Optional[str] = None
+    source_url: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+class PullRequestRecordResponse(BaseModel):
+    id: int
+    project_id: int
+    employee_id: int
+    pr_number: int
+    title: str
+    description: Optional[str] = None
+    source_branch: str
+    target_branch: str
+    is_merged: bool = False
+    has_tests: bool = False
+    open_review_comments: int = 0
+    review_notes: Optional[str] = None
+    timestamp: Optional[str] = None
+    source_url: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+class APIEndpointRecordResponse(BaseModel):
+    id: int
+    project_id: int
+    employee_id: Optional[int] = None
+    method: str
+    endpoint_path: str
+    description: Optional[str] = None
+    backend_module: str
+    request_params: Dict[str, Any] = {}
+    request_body: Dict[str, Any] = {}
+    response_structure: Dict[str, Any] = {}
+    auth_required: bool = True
+    permissions_required: str = "Authenticated"
+    database_tables: List[str] = []
+    frontend_callers: List[str] = []
+    test_coverage_status: str = "MISSING_TESTS"
+    implementation_status: str = "COMPLETED"
+    source_reference: Optional[str] = None
+    last_modified: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+class DatabaseSchemaRecordResponse(BaseModel):
+    id: int
+    project_id: int
+    employee_id: Optional[int] = None
+    model_name: str
+    table_name: str
+    description: Optional[str] = None
+    columns: List[Dict[str, Any]] = []
+    relationships: List[Dict[str, Any]] = []
+    foreign_keys: List[Dict[str, Any]] = []
+    indexes: List[str] = []
+    migration_script: Optional[str] = None
+    is_pending: bool = False
+    dependent_modules: List[str] = []
+
+    model_config = {"from_attributes": True}
+
+class BugDebtItemResponse(BaseModel):
+    id: int
+    project_id: int
+    employee_id: Optional[int] = None
+    issue_code: str
+    title: str
+    description: str
+    classification: str
+    severity: str
+    priority: str
+    affected_module: str
+    file_path: Optional[str] = None
+    line_number: Optional[int] = None
+    evidence_snippet: Optional[str] = None
+    investigation_performed: Optional[str] = None
+    fixes_attempted: Optional[str] = None
+    why_unresolved: Optional[str] = None
+    recommended_next_action: Optional[str] = None
+    confidence_level: str = "HIGH"
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class BlockerItemResponse(BaseModel):
+    id: int
+    project_id: int
+    employee_id: Optional[int] = None
+    title: str
+    description: str
+    failed_attempts: Optional[str] = None
+    external_dependency: Optional[str] = None
+    required_assistance: Optional[str] = None
+    status: str = "active"
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class KnowledgeGapItemResponse(BaseModel):
+    id: int
+    project_id: int
+    employee_id: Optional[int] = None
+    title: str
+    category: str
+    description: str
+    affected_component: Optional[str] = None
+    severity: str = "medium"
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class WorkTimelineEventResponse(BaseModel):
+    id: int
+    project_id: int
+    employee_id: int
+    timestamp: str
+    event_type: str
+    title: str
+    description: Optional[str] = None
+    source_reference: Optional[str] = None
+    verification_status: str = "VERIFIED"
+    source_url: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class ContinuationActionItemResponse(BaseModel):
+    id: int
+    project_id: int
+    departing_employee_id: Optional[int] = None
+    successor_id: Optional[int] = None
+    phase: str
+    title: str
+    description: Optional[str] = None
+    priority: str
+    is_completed: bool = False
+    completed_at: Optional[datetime] = None
+    notes: Optional[str] = None
+    relevant_files: List[str] = []
+    evidence_snippet: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class ConflictItemResponse(BaseModel):
+    id: int
+    project_id: int
+    title: str
+    statement_a: str
+    source_a: str
+    statement_b: str
+    source_b: str
+    conflict_type: str
+    resolution_status: str
+    resolved_by: Optional[str] = None
+    resolution_notes: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class SourceConnectionResponse(BaseModel):
+    id: int
+    project_id: int
+    source_type: str
+    connection_name: str
+    repository_url: Optional[str] = None
+    branch: str = "main"
+    auth_token_preview: Optional[str] = None
+    sync_status: str = "connected"
+    last_synced_at: Optional[datetime] = None
+    metadata_json: Dict[str, Any] = {}
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class EmployeePassportResponse(BaseModel):
+    employee: EmployeeProfileResponse
+    successor: Optional[EmployeeProfileResponse] = None
+    timeline: List[WorkTimelineEventResponse] = []
+    commits: List[CommitRecordResponse] = []
+    pull_requests: List[PullRequestRecordResponse] = []
+    api_endpoints: List[APIEndpointRecordResponse] = []
+    schema_records: List[DatabaseSchemaRecordResponse] = []
+    bugs_and_debt: List[BugDebtItemResponse] = []
+    blockers: List[BlockerItemResponse] = []
+    knowledge_gaps: List[KnowledgeGapItemResponse] = []
+    tasks: List[TaskResponse] = []
+    decisions: List[DecisionResponse] = []
+    continuation_plan: List[ContinuationActionItemResponse] = []
+
+class HandoverInitiateRequest(BaseModel):
+    departing_employee_id: int
+    successor_id: Optional[int] = None
+    notes: Optional[str] = None
+
+class HandoverAcknowledgeRequest(BaseModel):
+    comments: Optional[str] = None
+
+class AskCitation(BaseModel):
+    source_type: str  # document, commit, api, pull_request, task
+    title: str
+    reference: str  # URL, file path, commit hash, page number
+    quote_snippet: Optional[str] = None
+
+class AskProjectAIRequest(BaseModel):
+    project_id: int
+    question: str
+    employee_id: Optional[int] = None
+    role_scope: Optional[str] = "BACKEND"  # BACKEND, FRONTEND, ALL
+
+class AskProjectAIResponse(BaseModel):
+    answer: str
+    confidence: str  # HIGH, MEDIUM, LOW, INSUFFICIENT_EVIDENCE
+    citations: List[AskCitation] = []
+    missing_evidence_notice: Optional[str] = None
+    contradictions_noted: Optional[str] = None
+    recommended_follow_ups: List[str] = []
+
+

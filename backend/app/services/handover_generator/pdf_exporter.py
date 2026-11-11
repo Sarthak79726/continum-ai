@@ -156,8 +156,27 @@ def generate_handover_pdf(report_data: Dict[str, Any]) -> io.BytesIO:
     story.append(t_tasks)
     story.append(Spacer(1, 12))
 
-    # --- 4. RISKS & BLOCKERS ---
+    # --- 4. RISKS, BUGS & BLOCKERS ---
     risks = report_data.get("9_risks_and_blockers", {}).get("items", [])
+    bugs = report_data.get("9_risks_and_blockers", {}).get("unresolved_bugs", [])
+    if bugs:
+        story.append(Paragraph("Unresolved Bugs & Technical Debt", h1_style))
+        bug_rows = [["Code", "Title", "Classification", "Severity", "Recommended Next Action"]]
+        for b in bugs[:5]:
+            bug_rows.append([b.get("code", ""), b.get("title", "")[:28], b.get("classification", ""), b.get("severity", "").upper(), b.get("action", "")[:45]])
+        t_bugs = Table(bug_rows, colWidths=[55, 140, 105, 55, 165])
+        t_bugs.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fee2e2")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.HexColor("#991b1b")),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 7.5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
+        ]))
+        story.append(t_bugs)
+        story.append(Spacer(1, 10))
+
     if risks:
         story.append(Paragraph("Identified Technical & Operational Risks", h1_style))
         risk_rows = [["Risk", "Severity", "Impact & Suggested Resolution"]]
@@ -175,6 +194,26 @@ def generate_handover_pdf(report_data: Dict[str, Any]) -> io.BytesIO:
             ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
         ]))
         story.append(t_risks)
+        story.append(Spacer(1, 12))
+
+    # --- 4B. API HANDOVER INVENTORY ---
+    api_inv = report_data.get("8_technical_architecture", {}).get("api_inventory", [])
+    if api_inv:
+        story.append(Paragraph("API Handover Inventory (Backend Endpoints)", h1_style))
+        api_rows = [["Method & Path", "Status", "Module", "Coverage"]]
+        for a in api_inv[:6]:
+            api_rows.append([a.get("endpoint", ""), a.get("status", ""), a.get("module", ""), a.get("coverage", "")])
+        t_api = Table(api_rows, colWidths=[200, 110, 110, 100])
+        t_api.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), LIGHT_BG),
+            ('TEXTCOLOR', (0,0), (-1,0), NAVY),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
+        ]))
+        story.append(t_api)
         story.append(Spacer(1, 12))
 
     # --- 5. EVIDENCE PASSPORT ---

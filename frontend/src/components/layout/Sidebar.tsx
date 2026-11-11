@@ -13,7 +13,11 @@ import {
   Sparkles,
   Trash2,
   CheckCircle2,
-  Layers
+  Layers,
+  UserCheck,
+  Compass,
+  GitBranch,
+  ShieldAlert
 } from 'lucide-react';
 import { demoApi } from '../../services/api';
 
@@ -22,10 +26,21 @@ export const Sidebar: React.FC = () => {
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [demoNotice, setDemoNotice] = useState<string | null>(null);
 
-  const navItems = [
+  const primaryNavItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
     { label: 'Projects', path: '/projects', icon: FolderGit2 },
-    { label: 'Documents', path: '/documents', icon: FileText },
+    { label: 'Documents Vault', path: '/documents', icon: FileText },
+    { label: 'Source Integrations', path: '/sources', icon: GitBranch },
+  ];
+
+  const handoverNavItems = [
+    { label: 'Employee Passports', path: '/employees', icon: UserCheck, badge: 'Core' },
+    { label: 'Incoming Workspace', path: '/incoming-workspace', icon: Compass, badge: 'Day 1' },
+    { label: 'Ask Project AI', path: '/ask-ai', icon: Sparkles, badge: 'RAG' },
+    { label: 'Conflicts Radar', path: '/conflicts', icon: ShieldAlert },
+  ];
+
+  const reportNavItems = [
     { label: 'Knowledge Graph', path: '/graph', icon: Network },
     { label: 'Evidence Passport', path: '/evidence', icon: ShieldCheck },
     { label: 'Continuity Blueprint', path: '/tasks', icon: ListTodo },
@@ -77,30 +92,93 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <div className="px-3 pb-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-          Platform Workspace
+      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+        {/* Section 1: Core Workspace */}
+        <div className="space-y-1">
+          <div className="px-3 pb-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+            Workspace & Sources
+          </div>
+          {primaryNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    isActive
+                      ? 'bg-teal-500/10 text-teal-300 border border-teal-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`
+                }
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
         </div>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-teal-500/10 text-teal-300 border border-teal-500/30'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                }`
-              }
-            >
-              <Icon className="w-4 h-4" />
-              <span>{item.label}</span>
-            </NavLink>
-          );
-        })}
+
+        {/* Section 2: Knowledge Continuity & Handover */}
+        <div className="space-y-1">
+          <div className="px-3 pb-1.5 text-[10px] font-semibold text-teal-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Handover Intelligence</span>
+            <span className="text-[9px] bg-teal-500/20 text-teal-300 px-1.5 py-0.2 rounded font-mono">2.0</span>
+          </div>
+          {handoverNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    isActive
+                      ? 'bg-teal-500/10 text-teal-300 border border-teal-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`
+                }
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-teal-300 font-mono">
+                    {item.badge}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
+        </div>
+
+        {/* Section 3: Architecture & Reports */}
+        <div className="space-y-1">
+          <div className="px-3 pb-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+            Reports & Access
+          </div>
+          {reportNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    isActive
+                      ? 'bg-teal-500/10 text-teal-300 border border-teal-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`
+                }
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Demo Dataset Controls */}

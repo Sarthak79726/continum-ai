@@ -16,6 +16,11 @@ const HandoverReportsPage = lazy(() => import('./pages/HandoverReportsPage').the
 const ReviewCentrePage = lazy(() => import('./pages/ReviewCentrePage').then(m => ({ default: m.ReviewCentrePage })));
 const TeamPage = lazy(() => import('./pages/TeamPage').then(m => ({ default: m.TeamPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const EmployeePassportPage = lazy(() => import('./pages/EmployeePassportPage').then(m => ({ default: m.EmployeePassportPage })));
+const IncomingWorkspacePage = lazy(() => import('./pages/IncomingWorkspacePage').then(m => ({ default: m.IncomingWorkspacePage })));
+const AskProjectAIPage = lazy(() => import('./pages/AskProjectAIPage').then(m => ({ default: m.AskProjectAIPage })));
+const SourceIntegrationsPage = lazy(() => import('./pages/SourceIntegrationsPage').then(m => ({ default: m.SourceIntegrationsPage })));
+const ConflictsPage = lazy(() => import('./pages/ConflictsPage').then(m => ({ default: m.ConflictsPage })));
 
 // Protected Route Wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -54,6 +59,11 @@ export const App: React.FC = () => {
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:id" element={<ProjectDetailPage />} />
               <Route path="documents" element={<DocumentsPage />} />
+              <Route path="sources" element={<SourceIntegrationsPage />} />
+              <Route path="employees" element={<EmployeePassportPage />} />
+              <Route path="incoming-workspace" element={<IncomingWorkspacePage />} />
+              <Route path="ask-ai" element={<AskProjectAIPage />} />
+              <Route path="conflicts" element={<ConflictsPage />} />
               <Route path="graph" element={<KnowledgeGraphPage />} />
               <Route path="evidence" element={<EvidencePassportPage />} />
               <Route path="tasks" element={<ContinuityBlueprintPage />} />

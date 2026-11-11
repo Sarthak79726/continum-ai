@@ -12,7 +12,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from app.models.all_models import (
     Project, Document, DocumentChunk, ExtractedKnowledge,
     Task, Decision, Risk, Dependency, Evidence, User, UserRole,
-    VerificationStatus, TaskStatus, PriorityLevel
+    VerificationStatus, TaskStatus, PriorityLevel, EmployeeProfile,
+    HandoverLifecycleStatus, APIEndpointRecord
 )
 from app.services.vector_store.chroma_service import vector_store
 
@@ -122,18 +123,31 @@ def load_sample_dataset(db: Session, user: User) -> Project:
     ).first()
 
     if existing_project:
-        return existing_project
-
-    demo_project = Project(
-        name="Smart Campus Management System (DEMO)",
-        description="Official synthetic demonstration project for Continuum AI handover platform. Models knowledge transition for departing lead developer Rahul.",
-        owner_id=user.id,
-        status="active",
-        is_demo=True
-    )
-    db.add(demo_project)
-    db.commit()
-    db.refresh(demo_project)
+        emp_count = db.query(EmployeeProfile).filter(EmployeeProfile.project_id == existing_project.id).count()
+        if emp_count > 0:
+            apis_count = db.query(APIEndpointRecord).filter(APIEndpointRecord.project_id == existing_project.id).count()
+            if apis_count == 0:
+                rahul = db.query(EmployeeProfile).filter(EmployeeProfile.project_id == existing_project.id, EmployeeProfile.name.ilike("%Rahul%")).first()
+                if rahul:
+                    from app.services.sources.github_service import github_service
+                    from app.services.employee_passport.passport_service import passport_service
+                    mapping = {e.name: e.id for e in db.query(EmployeeProfile).filter(EmployeeProfile.project_id == existing_project.id).all()}
+                    github_service.sync_repository_to_db(existing_project.id, "continuum-campus", "smart-campus-core", db, mapping)
+                    passport_service.reconstruct_employee_knowledge(rahul.id, db)
+            return existing_project
+        # Project exists but needs employee roster and passport data seeded
+        demo_project = existing_project
+    else:
+        demo_project = Project(
+            name="Smart Campus Management System (DEMO)",
+            description="Official synthetic demonstration project for Continuum AI handover platform. Models knowledge transition for departing lead developer Rahul.",
+            owner_id=user.id,
+            status="active",
+            is_demo=True
+        )
+        db.add(demo_project)
+        db.commit()
+        db.refresh(demo_project)
 
     # Create Document records and chunks
     sample_files = [
@@ -197,6 +211,90 @@ def load_sample_dataset(db: Session, user: User) -> Project:
     from app.services.knowledge_extractor.extractor import KnowledgeExtractor
     extractor = KnowledgeExtractor(db, demo_project)
     extractor.run_reconstruction(user.id)
+
+    # Seed Hackathon Multi-Employee Roster
+    from app.services.sources.github_service import github_service
+    from app.services.employee_passport.passport_service import passport_service
+
+    # 1. Maya Patel (Successor - Incoming Backend Developer)
+    maya = EmployeeProfile(
+        project_id=demo_project.id,
+        name="Maya Patel",
+        employee_id_code="EMP-104",
+        role_title="Incoming Backend Developer",
+        department="Engineering",
+        responsibilities=["Backend API Maintenance", "Payment Gateway Completion", "Database Schema Evolution"],
+        date_joined="2025-10-25",
+        handover_status=HandoverLifecycleStatus.ACTIVE.value,
+        last_activity_date="2025-10-25",
+        contribution_summary="Incoming successor engineer reviewing handover dossier and continuation checklist."
+    )
+    db.add(maya)
+    db.commit()
+    db.refresh(maya)
+
+    # 2. Rahul Sharma (Departing Lead Backend Developer)
+    rahul = EmployeeProfile(
+        project_id=demo_project.id,
+        name="Rahul Sharma",
+        employee_id_code="EMP-101",
+        role_title="Lead Backend Developer",
+        department="Engineering",
+        responsibilities=["FastAPI Backend Services", "JWT Authentication", "SQLite/Postgres Database Models", "Stripe Payment Gateway Integration"],
+        date_joined="2024-06-01",
+        handover_initiation_date="2025-10-24",
+        assigned_successor_id=maya.id,
+        handover_status=HandoverLifecycleStatus.PENDING_APPROVAL.value,
+        last_activity_date="2025-10-24",
+        contribution_summary="Designed and implemented the core authentication API, student database schema, and initial payment gateway webhook integration."
+    )
+    db.add(rahul)
+
+    # 3. Sarah Chen (Product Manager / Frontend Developer)
+    sarah = EmployeeProfile(
+        project_id=demo_project.id,
+        name="Sarah Chen",
+        employee_id_code="EMP-102",
+        role_title="Product Manager & Frontend Engineer",
+        department="Product & Design",
+        responsibilities=["Campus Dashboard Analytics", "Requirements Engineering", "Finance Office Liaison", "Sprint Planning"],
+        date_joined="2024-05-15",
+        handover_status=HandoverLifecycleStatus.ACTIVE.value,
+        last_activity_date="2025-10-24",
+        contribution_summary="Leads sprint planning, campus dashboard UI development with Recharts, and holds liaison contact with the Bursar finance office."
+    )
+    db.add(sarah)
+
+    # 4. Alex Kumar (Core System Developer & Architect)
+    alex = EmployeeProfile(
+        project_id=demo_project.id,
+        name="Alex Kumar",
+        employee_id_code="EMP-103",
+        role_title="Core System Developer & Architect",
+        department="Platform Architecture",
+        responsibilities=["System Bus Architecture", "Async Event Workers", "Security Code Reviews", "ChromaDB Semantic Search Integration"],
+        date_joined="2024-04-10",
+        handover_status=HandoverLifecycleStatus.ACTIVE.value,
+        last_activity_date="2025-10-24",
+        contribution_summary="Architected asynchronous event processing, conducted security code reviews on auth PRs, and configured ChromaDB persistent semantic search."
+    )
+    db.add(alex)
+    db.commit()
+    db.refresh(rahul)
+
+    # Sync GitHub commits and PRs attributed to employees
+    emp_mapping = {
+        "Rahul Sharma": rahul.id,
+        "Sarah Chen": sarah.id,
+        "Alex Kumar": alex.id,
+        "Maya Patel": maya.id
+    }
+    github_service.sync_repository_to_db(demo_project.id, "continuum-campus", "smart-campus-core", db, emp_mapping)
+
+    # Reconstruct Rahul's complete Knowledge Passport (APIs, schemas, bugs, blockers, knowledge gaps, continuation actions)
+    passport_service.reconstruct_employee_knowledge(rahul.id, db)
+    rahul.handover_status = HandoverLifecycleStatus.PENDING_APPROVAL.value
+    db.commit()
 
     return demo_project
 

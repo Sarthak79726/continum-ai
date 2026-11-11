@@ -40,6 +40,24 @@ class ReportStatus(str, enum.Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
 
+class HandoverLifecycleStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    HANDOVER_INITIATED = "HANDOVER_INITIATED"
+    ANALYSING = "ANALYSING"
+    EVIDENCE_REVIEW = "EVIDENCE_REVIEW"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
+    APPROVED = "APPROVED"
+    SHARED = "SHARED"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    COMPLETED = "COMPLETED"
+
+class BugClassification(str, enum.Enum):
+    CONFIRMED_UNRESOLVED = "CONFIRMED UNRESOLVED"
+    POTENTIAL_BUG = "POTENTIAL BUG"
+    NEEDS_INVESTIGATION = "NEEDS INVESTIGATION"
+    RESOLVED = "RESOLVED"
+    UNVERIFIED = "UNVERIFIED"
+
 class User(Base):
     __tablename__ = "users"
 
@@ -81,6 +99,18 @@ class Project(Base):
     risks = relationship("Risk", back_populates="project", cascade="all, delete-orphan")
     handovers = relationship("HandoverReport", back_populates="project", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="project", cascade="all, delete-orphan")
+    employees = relationship("EmployeeProfile", back_populates="project", cascade="all, delete-orphan")
+    commits = relationship("CommitRecord", back_populates="project", cascade="all, delete-orphan")
+    pull_requests = relationship("PullRequestRecord", back_populates="project", cascade="all, delete-orphan")
+    api_endpoints = relationship("APIEndpointRecord", back_populates="project", cascade="all, delete-orphan")
+    schema_records = relationship("DatabaseSchemaRecord", back_populates="project", cascade="all, delete-orphan")
+    bugs_and_debt = relationship("BugDebtItem", back_populates="project", cascade="all, delete-orphan")
+    blockers = relationship("BlockerItem", back_populates="project", cascade="all, delete-orphan")
+    knowledge_gaps = relationship("KnowledgeGapItem", back_populates="project", cascade="all, delete-orphan")
+    timeline_events = relationship("WorkTimelineEvent", back_populates="project", cascade="all, delete-orphan")
+    continuation_actions = relationship("ContinuationActionItem", back_populates="project", cascade="all, delete-orphan")
+    conflicts = relationship("ConflictItem", back_populates="project", cascade="all, delete-orphan")
+    source_connections = relationship("SourceConnection", back_populates="project", cascade="all, delete-orphan")
 
 class ProjectMembership(Base):
     __tablename__ = "project_memberships"
@@ -233,6 +263,11 @@ class HandoverReport(Base):
     view_mode = Column(String(50), default="incoming_member_view")  # pm_view or incoming_member_view
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    departing_employee_id = Column(Integer, nullable=True)
+    successor_id = Column(Integer, nullable=True)
+    lifecycle_status = Column(String(50), default=HandoverLifecycleStatus.ACTIVE.value, nullable=False)
+    acknowledged_at = Column(DateTime, nullable=True)
+    acknowledgement_notes = Column(Text, nullable=True)
 
     project = relationship("Project", back_populates="handovers")
     creator = relationship("User", back_populates="reports")
@@ -263,4 +298,258 @@ class AuditLog(Base):
 
     user = relationship("User")
     project = relationship("Project", back_populates="audit_logs")
+
+# --- EMPLOYEE KNOWLEDGE PASSPORT & CODE CONTRIBUTION MODELS ---
+
+class EmployeeProfile(Base):
+    __tablename__ = "employee_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    name = Column(String(100), nullable=False)
+    employee_id_code = Column(String(50), nullable=True)
+    role_title = Column(String(100), nullable=False)
+    department = Column(String(100), default="Engineering")
+    responsibilities = Column(JSON, default=list)
+    date_joined = Column(String(50), nullable=True)
+    handover_initiation_date = Column(String(50), nullable=True)
+    assigned_successor_id = Column(Integer, ForeignKey("employee_profiles.id"), nullable=True)
+    handover_status = Column(String(50), default=HandoverLifecycleStatus.ACTIVE.value, nullable=False)
+    last_activity_date = Column(String(50), nullable=True)
+    contribution_summary = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="employees")
+    user = relationship("User")
+    commits = relationship("CommitRecord", back_populates="employee", cascade="all, delete-orphan")
+    pull_requests = relationship("PullRequestRecord", back_populates="employee", cascade="all, delete-orphan")
+    api_endpoints = relationship("APIEndpointRecord", back_populates="employee", cascade="all, delete-orphan")
+    schema_records = relationship("DatabaseSchemaRecord", back_populates="employee", cascade="all, delete-orphan")
+    bugs = relationship("BugDebtItem", back_populates="employee", cascade="all, delete-orphan")
+    blockers = relationship("BlockerItem", back_populates="employee", cascade="all, delete-orphan")
+    knowledge_gaps = relationship("KnowledgeGapItem", back_populates="employee", cascade="all, delete-orphan")
+    timeline_events = relationship("WorkTimelineEvent", back_populates="employee", cascade="all, delete-orphan")
+
+class CommitRecord(Base):
+    __tablename__ = "commit_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    commit_hash = Column(String(64), nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    branch = Column(String(100), default="main")
+    changed_files = Column(JSON, default=list)
+    insertions = Column(Integer, default=0)
+    deletions = Column(Integer, default=0)
+    is_merged = Column(Boolean, default=True)
+    has_tests = Column(Boolean, default=False)
+    affected_modules = Column(JSON, default=list)
+    timestamp = Column(String(50), nullable=True)
+    source_url = Column(String(500), nullable=True)
+
+    project = relationship("Project", back_populates="commits")
+    employee = relationship("EmployeeProfile", back_populates="commits")
+
+class PullRequestRecord(Base):
+    __tablename__ = "pull_request_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    pr_number = Column(Integer, nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    source_branch = Column(String(100), nullable=False)
+    target_branch = Column(String(100), default="main")
+    is_merged = Column(Boolean, default=False)
+    has_tests = Column(Boolean, default=False)
+    open_review_comments = Column(Integer, default=0)
+    review_notes = Column(Text, nullable=True)
+    timestamp = Column(String(50), nullable=True)
+    source_url = Column(String(500), nullable=True)
+
+    project = relationship("Project", back_populates="pull_requests")
+    employee = relationship("EmployeeProfile", back_populates="pull_requests")
+
+class APIEndpointRecord(Base):
+    __tablename__ = "api_endpoint_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=True, index=True)
+    method = Column(String(10), nullable=False)  # GET, POST, PUT, DELETE, PATCH
+    endpoint_path = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    backend_module = Column(String(100), nullable=False)
+    request_params = Column(JSON, default=dict)
+    request_body = Column(JSON, default=dict)
+    response_structure = Column(JSON, default=dict)
+    auth_required = Column(Boolean, default=True)
+    permissions_required = Column(String(100), default="Authenticated")
+    database_tables = Column(JSON, default=list)
+    frontend_callers = Column(JSON, default=list)
+    test_coverage_status = Column(String(50), default="MISSING_TESTS")  # COVERED, MISSING_TESTS, PARTIALLY_TESTED
+    implementation_status = Column(String(50), default="COMPLETED")  # COMPLETED, PARTIALLY_IMPLEMENTED, NOT_IMPLEMENTED, NEEDS_TESTING
+    source_reference = Column(String(255), nullable=True)
+    last_modified = Column(String(50), nullable=True)
+
+    project = relationship("Project", back_populates="api_endpoints")
+    employee = relationship("EmployeeProfile", back_populates="api_endpoints")
+
+class DatabaseSchemaRecord(Base):
+    __tablename__ = "database_schema_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=True, index=True)
+    model_name = Column(String(100), nullable=False)
+    table_name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    columns = Column(JSON, default=list)
+    relationships = Column(JSON, default=list)
+    foreign_keys = Column(JSON, default=list)
+    indexes = Column(JSON, default=list)
+    migration_script = Column(String(100), nullable=True)
+    is_pending = Column(Boolean, default=False)
+    dependent_modules = Column(JSON, default=list)
+
+    project = relationship("Project", back_populates="schema_records")
+    employee = relationship("EmployeeProfile", back_populates="schema_records")
+
+class BugDebtItem(Base):
+    __tablename__ = "bug_debt_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=True, index=True)
+    issue_code = Column(String(50), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    classification = Column(String(50), default=BugClassification.CONFIRMED_UNRESOLVED.value, nullable=False)
+    severity = Column(String(50), default=PriorityLevel.MEDIUM.value, nullable=False)
+    priority = Column(String(50), default=PriorityLevel.MEDIUM.value, nullable=False)
+    affected_module = Column(String(100), nullable=False)
+    file_path = Column(String(255), nullable=True)
+    line_number = Column(Integer, nullable=True)
+    evidence_snippet = Column(Text, nullable=True)
+    investigation_performed = Column(Text, nullable=True)
+    fixes_attempted = Column(Text, nullable=True)
+    why_unresolved = Column(Text, nullable=True)
+    recommended_next_action = Column(Text, nullable=True)
+    confidence_level = Column(String(50), default="HIGH")  # HIGH, MEDIUM, LOW
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="bugs_and_debt")
+    employee = relationship("EmployeeProfile", back_populates="bugs")
+
+class BlockerItem(Base):
+    __tablename__ = "blocker_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=True, index=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    failed_attempts = Column(Text, nullable=True)
+    external_dependency = Column(Text, nullable=True)
+    required_assistance = Column(Text, nullable=True)
+    status = Column(String(50), default="active")  # active, resolved
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="blockers")
+    employee = relationship("EmployeeProfile", back_populates="blockers")
+
+class KnowledgeGapItem(Base):
+    __tablename__ = "knowledge_gap_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=True, index=True)
+    title = Column(String(255), nullable=False)
+    category = Column(String(50), nullable=False)  # missing_documentation, api_without_specs, code_without_tests, undocumented_dependency, decision_without_reasoning, unclear_ownership
+    description = Column(Text, nullable=False)
+    affected_component = Column(String(100), nullable=True)
+    severity = Column(String(50), default="medium")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="knowledge_gaps")
+    employee = relationship("EmployeeProfile", back_populates="knowledge_gaps")
+
+class WorkTimelineEvent(Base):
+    __tablename__ = "work_timeline_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    timestamp = Column(String(50), nullable=False)
+    event_type = Column(String(50), nullable=False)  # task_completed, task_started, commit_created, pr_opened, pr_merged, bug_reported, bug_fixed, decision_made, blocker_encountered, meeting_held
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    source_reference = Column(String(255), nullable=True)
+    verification_status = Column(String(50), default=VerificationStatus.VERIFIED.value)
+    source_url = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="timeline_events")
+    employee = relationship("EmployeeProfile", back_populates="timeline_events")
+
+class ContinuationActionItem(Base):
+    __tablename__ = "continuation_action_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    departing_employee_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="CASCADE"), nullable=True, index=True)
+    successor_id = Column(Integer, ForeignKey("employee_profiles.id", ondelete="SET NULL"), nullable=True, index=True)
+    phase = Column(String(50), default="DAY_1", nullable=False)  # DAY_1, DAY_2_3, WEEK_1, DAY_30, DAY_60, DAY_90
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    priority = Column(String(50), default=PriorityLevel.HIGH.value, nullable=False)
+    is_completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    relevant_files = Column(JSON, default=list)
+    evidence_snippet = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="continuation_actions")
+    departing_employee = relationship("EmployeeProfile", foreign_keys=[departing_employee_id])
+    successor = relationship("EmployeeProfile", foreign_keys=[successor_id])
+
+class ConflictItem(Base):
+    __tablename__ = "conflict_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    statement_a = Column(Text, nullable=False)
+    source_a = Column(String(255), nullable=False)
+    statement_b = Column(Text, nullable=False)
+    source_b = Column(String(255), nullable=False)
+    conflict_type = Column(String(50), default="status_mismatch")  # status_mismatch, code_doc_conflict, ownership_conflict, unmerged_pr_vs_done
+    resolution_status = Column(String(50), default="open")  # open, resolved
+    resolved_by = Column(String(100), nullable=True)
+    resolution_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="conflicts")
+
+class SourceConnection(Base):
+    __tablename__ = "source_connections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_type = Column(String(50), nullable=False)  # github, document_folder, jira, slack
+    connection_name = Column(String(150), nullable=False)
+    repository_url = Column(String(500), nullable=True)
+    branch = Column(String(100), default="main")
+    auth_token_preview = Column(String(50), nullable=True)
+    sync_status = Column(String(50), default="connected")  # connected, syncing, synced, failed, synthetic_demo
+    last_synced_at = Column(DateTime, nullable=True)
+    metadata_json = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="source_connections")
 

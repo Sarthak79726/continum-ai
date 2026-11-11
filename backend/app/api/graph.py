@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.core.dependencies import get_current_user, check_project_access
 from app.models.all_models import (
-    Project, Task, Decision, Risk, Dependency, Document, User, ExtractedKnowledge
+    Project, Task, Decision, Risk, Dependency, Document, User, ExtractedKnowledge,
+    EmployeeProfile, APIEndpointRecord, BugDebtItem, CommitRecord
 )
 from app.schemas.all_schemas import KnowledgeGraphResponse, GraphNode, GraphEdge, GraphNodeData
 
@@ -39,38 +40,66 @@ def get_project_knowledge_graph(
     ))
     node_id_set.add(root_id)
 
-    # 2. Key Person Nodes (e.g., Owner and Departing Developer)
-    persons = set()
+    # 2. Key Employee / Person Nodes
     tasks = db.query(Task).filter(Task.project_id == project.id).all()
-    for t in tasks:
-        if t.owner and t.owner not in ["Unknown", "Unassigned", "Incoming Engineer"]:
-            persons.add(t.owner)
-
-    if not persons and project.owner:
-        persons.add(project.owner.name)
-
-    person_nodes = list(persons)
-    for i, p_name in enumerate(person_nodes):
-        p_id = f"person_{i}"
-        x = 200 + i * 220
-        y = 120
-        nodes.append(GraphNode(
-            id=p_id,
-            type="person",
-            data=GraphNodeData(
-                label=p_name,
+    db_employees = db.query(EmployeeProfile).filter(EmployeeProfile.project_id == project.id).all()
+    person_nodes = []
+    
+    if db_employees:
+        for i, emp in enumerate(db_employees):
+            p_id = f"emp_{emp.id}"
+            x = 150 + i * 220
+            y = 100
+            nodes.append(GraphNode(
+                id=p_id,
                 type="person",
-                details=f"Team Member / Contributor on {project.name}"
-            ),
-            position={"x": x, "y": y}
-        ))
-        node_id_set.add(p_id)
-        edges.append(GraphEdge(
-            id=f"e_{p_id}_{root_id}",
-            source=p_id,
-            target=root_id,
-            label="Contributes to"
-        ))
+                data=GraphNodeData(
+                    label=emp.name,
+                    type="person",
+                    status=emp.handover_status,
+                    details=f"{emp.role_title} ({emp.department})"
+                ),
+                position={"x": x, "y": y}
+            ))
+            node_id_set.add(p_id)
+            edges.append(GraphEdge(
+                id=f"e_{p_id}_{root_id}",
+                source=p_id,
+                target=root_id,
+                label=f"Role: {emp.role_title}"
+            ))
+            person_nodes.append((emp.name, p_id))
+    else:
+        persons = set()
+        for t in tasks:
+            if t.owner and t.owner not in ["Unknown", "Unassigned", "Incoming Engineer"]:
+                persons.add(t.owner)
+
+        if not persons and project.owner:
+            persons.add(project.owner.name)
+
+        for i, p_name in enumerate(list(persons)):
+            p_id = f"person_{i}"
+            x = 200 + i * 220
+            y = 120
+            nodes.append(GraphNode(
+                id=p_id,
+                type="person",
+                data=GraphNodeData(
+                    label=p_name,
+                    type="person",
+                    details=f"Team Member / Contributor on {project.name}"
+                ),
+                position={"x": x, "y": y}
+            ))
+            node_id_set.add(p_id)
+            edges.append(GraphEdge(
+                id=f"e_{p_id}_{root_id}",
+                source=p_id,
+                target=root_id,
+                label="Contributes to"
+            ))
+            person_nodes.append((p_name, p_id))
 
     # 3. Technical Component Nodes from Overview
     overview_entry = db.query(ExtractedKnowledge).filter(
@@ -126,11 +155,11 @@ def get_project_knowledge_graph(
 
         # Connect task to person if owner matches
         matched_person = False
-        for j, p_name in enumerate(person_nodes):
-            if t.owner and p_name.lower() in t.owner.lower():
+        for p_name, p_node_id in person_nodes:
+            if t.owner and p_name.lower().split()[0] in t.owner.lower():
                 edges.append(GraphEdge(
-                    id=f"e_person_{j}_{t_id}",
-                    source=f"person_{j}",
+                    id=f"e_{p_node_id}_{t_id}",
+                    source=p_node_id,
                     target=t_id,
                     label="Assigned to"
                 ))
@@ -144,7 +173,64 @@ def get_project_knowledge_graph(
                 label="Task"
             ))
 
-    # 5. Risk Nodes
+    # 5. API Endpoint Nodes (from APIEndpointRecord)
+    db_apis = db.query(APIEndpointRecord).filter(APIEndpointRecord.project_id == project.id).all()
+    for i, api in enumerate(db_apis[:6]):
+        api_id = f"api_{api.id}"
+        x = 350 + (i % 3) * 220
+        y = 650 + (i // 3) * 120
+        nodes.append(GraphNode(
+            id=api_id,
+            type="component",
+            data=GraphNodeData(
+                label=f"{api.method} {api.endpoint_path}",
+                type="component",
+                status=api.implementation_status,
+                details=f"Module: {api.backend_module} | Auth: {api.permissions_required}",
+                evidence=api.source_reference
+            ),
+            position={"x": x, "y": y}
+        ))
+        node_id_set.add(api_id)
+        if api.employee_id:
+            edges.append(GraphEdge(
+                id=f"e_emp_{api.employee_id}_{api_id}",
+                source=f"emp_{api.employee_id}",
+                target=api_id,
+                label=f"Implemented ({api.implementation_status})",
+                style={"stroke": "#10b981" if api.implementation_status == "COMPLETED" else "#f59e0b"}
+            ))
+
+    # 6. Bug Debt Nodes (from BugDebtItem)
+    db_bugs = db.query(BugDebtItem).filter(BugDebtItem.project_id == project.id).all()
+    for i, b in enumerate(db_bugs[:4]):
+        b_id = f"bug_{b.id}"
+        x = 750 + (i % 2) * 200
+        y = 650 + (i // 2) * 120
+        nodes.append(GraphNode(
+            id=b_id,
+            type="risk",
+            data=GraphNodeData(
+                label=f"[{b.issue_code}] {b.title[:24]}...",
+                type="risk",
+                severity=b.severity,
+                status=b.classification,
+                details=b.description,
+                evidence=b.evidence_snippet
+            ),
+            position={"x": x, "y": y}
+        ))
+        node_id_set.add(b_id)
+        if b.employee_id:
+            edges.append(GraphEdge(
+                id=f"e_emp_{b.employee_id}_{b_id}",
+                source=f"emp_{b.employee_id}",
+                target=b_id,
+                label=f"Debt: {b.classification}",
+                style={"stroke": "#ef4444", "strokeDasharray": "4 4"}
+            ))
+
+    # 7. Risk Nodes
     risks = db.query(Risk).filter(Risk.project_id == project.id).all()
     for i, r in enumerate(risks[:3]):
         r_id = f"risk_{r.id}"
@@ -171,7 +257,7 @@ def get_project_knowledge_graph(
             style={"stroke": "#ef4444", "strokeDasharray": "5 5"}
         ))
 
-    # 6. Decision Nodes
+    # 8. Decision Nodes
     decisions = db.query(Decision).filter(Decision.project_id == project.id).all()
     for i, d in enumerate(decisions[:3]):
         d_id = f"dec_{d.id}"

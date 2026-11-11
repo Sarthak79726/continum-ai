@@ -13,7 +13,13 @@ import {
   KnowledgeGraphData,
   DashboardStats,
   ProjectMember,
-  User
+  User,
+  EmployeeProfile,
+  EmployeePassportData,
+  ContinuationActionItem,
+  SourceConnection,
+  ConflictItem,
+  AskAIResponse
 } from '../types';
 
 const api = axios.create({
@@ -163,6 +169,50 @@ export const settingsApi = {
     api.get<any>('/settings/status').then((res) => res.data),
   update: (data: { ai_provider?: string; ai_api_key?: string; ai_model?: string }) =>
     api.put<any>('/settings', data).then((res) => res.data),
+};
+
+export const employeeApi = {
+  listByProject: (projectId: number) =>
+    api.get<EmployeeProfile[]>(`/employees/project/${projectId}`).then((res) => res.data),
+  get: (id: number) =>
+    api.get<EmployeeProfile>(`/employees/${id}`).then((res) => res.data),
+  create: (projectId: number, data: Partial<EmployeeProfile>) =>
+    api.post<EmployeeProfile>(`/employees/project/${projectId}`, data).then((res) => res.data),
+  update: (id: number, data: Partial<EmployeeProfile>) =>
+    api.put<EmployeeProfile>(`/employees/${id}`, data).then((res) => res.data),
+  getPassport: (id: number) =>
+    api.get<EmployeePassportData>(`/employees/${id}/passport`).then((res) => res.data),
+  reconstruct: (id: number) =>
+    api.post<EmployeePassportData>(`/employees/${id}/reconstruct`).then((res) => res.data),
+  initiateHandover: (id: number, data: { successor_id?: number; notes?: string }) =>
+    api.post<{ status: string; message: string; data: any }>(`/employees/${id}/handover/initiate`, data).then((res) => res.data),
+  acknowledgeHandover: (id: number, data: { comments?: string }) =>
+    api.post<{ status: string; message: string; acknowledged_at: string; acknowledged_by: string }>(`/employees/${id}/handover/acknowledge`, data).then((res) => res.data),
+  getActions: (id: number) =>
+    api.get<ContinuationActionItem[]>(`/employees/${id}/actions`).then((res) => res.data),
+  toggleAction: (actionId: number) =>
+    api.put<ContinuationActionItem>(`/employees/actions/${actionId}/toggle`).then((res) => res.data),
+};
+
+export const sourceApi = {
+  listByProject: (projectId: number) =>
+    api.get<SourceConnection[]>(`/sources/project/${projectId}`).then((res) => res.data),
+  connectGitHub: (projectId: number, data: { owner: string; repo: string; branch?: string; token?: string }) =>
+    api.post<any>(`/sources/project/${projectId}/github/connect`, data).then((res) => res.data),
+  syncGitHub: (projectId: number) =>
+    api.post<any>(`/sources/project/${projectId}/github/sync`).then((res) => res.data),
+};
+
+export const conflictApi = {
+  listByProject: (projectId: number) =>
+    api.get<ConflictItem[]>(`/conflicts/project/${projectId}`).then((res) => res.data),
+  resolve: (conflictId: number, data: { resolution_notes: string }) =>
+    api.post<ConflictItem>(`/conflicts/${conflictId}/resolve`, data).then((res) => res.data),
+};
+
+export const askAiApi = {
+  ask: (data: { project_id: number; question: string; employee_id?: number; role_scope?: string }) =>
+    api.post<AskAIResponse>('/ai/ask', data).then((res) => res.data),
 };
 
 export default api;
