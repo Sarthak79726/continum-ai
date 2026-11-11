@@ -136,3 +136,4 @@ Once Railway reports **Success** and the health check returns `healthy`, open th
 - **Email:** `demo@continuum.ai`
 - **Password:** `password123`
 - **Role:** `ADMIN`
+
