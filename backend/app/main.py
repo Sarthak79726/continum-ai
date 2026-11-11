@@ -151,6 +151,7 @@ app.include_router(conflicts_router, prefix=settings.API_V1_STR)
 app.include_router(ask_ai_router, prefix=settings.API_V1_STR)
 
 @app.get("/api/health")
+@app.get("/health")
 def health_check():
     return {
         "status": "healthy",
@@ -172,7 +173,7 @@ if os.path.exists(frontend_dist):
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         if full_path.startswith("api"):
-            return JSONResponse(status_code=404, content={"detail": "API endpoint not found"})
+            return {"error": "Not Found"}
         target_file = os.path.join(frontend_dist, full_path)
         if os.path.isfile(target_file):
             return FileResponse(target_file)

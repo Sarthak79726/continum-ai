@@ -90,3 +90,4 @@ Render free tier instances sync with GitHub upon commit. However, to guarantee a
 3. Render will pull commit `cafb2cb`, compile the multi-stage Docker image, verify `/api/health`, and mark the service **Live**.
 4. The live application will be instantly accessible at:  
    👉 [https://continuum-ai.onrender.com](https://continuum-ai.onrender.com)
+

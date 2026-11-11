@@ -33,7 +33,7 @@ COPY data/ ./data/
 COPY .env.example .env
 
 # Create required runtime directories for file uploads and vector store
-RUN mkdir -p uploads chroma_data
+RUN mkdir -p uploads chroma_data data
 
 # Copy built frontend assets to be served by FastAPI
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

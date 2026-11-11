@@ -100,3 +100,4 @@ dist/assets/recharts-vendor-CODI81KR.js          375.72 kB │ gzip: 106.97 kB
 | Web Root / SPA | `https://continuum-ai.onrender.com/` | `200 OK` (React SPA index.html) | Handled by FastAPI `serve_spa` |
 | Demo Authentication | `POST /api/auth/login` | `200 OK` + JWT Bearer token | Validated with `demo@continuum.ai` / `password123` |
 | Demo Project Retrieval | `GET /api/projects` | `200 OK` + Smart Campus Project | Verified auto-seed on clean boot |
+

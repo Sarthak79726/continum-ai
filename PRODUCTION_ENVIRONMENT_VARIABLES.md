@@ -99,3 +99,4 @@ services:
       - key: UPLOAD_DIRECTORY
         value: ./uploads
 ```
+

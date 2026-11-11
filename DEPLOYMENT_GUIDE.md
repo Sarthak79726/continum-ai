@@ -134,3 +134,4 @@ Continuum AI is self-bootstrapping:
 | **Health check timed out** | Render probing wrong path or timeout too short | Set `healthCheckPath: /api/health` in `render.yaml`. |
 | **Login fails with demo account** | Database not seeded or incorrect password | Seed runs automatically on startup. Use `demo@continuum.ai` and `password123`. |
 | **404 Not Found on Page Refresh** | Static file handler intercepting client routes | Verified: `serve_spa` catch-all in `main.py` redirects non-API paths to `index.html`. |
+

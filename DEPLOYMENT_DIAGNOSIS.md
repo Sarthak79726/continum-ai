@@ -59,3 +59,4 @@
 | 4 | Automatic Demo Project Seeding | `main.py` | Seed Smart Campus Management System if DB is empty |
 | 5 | Configure Render Health Check | `render.yaml` | Add `healthCheckPath: /api/health` |
 | 6 | Copy `alembic.ini` and migrations | `Dockerfile` | Include `alembic.ini` in `/app` |
+
