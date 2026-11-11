@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.database.session import get_db
-from app.core.dependencies import get_current_user
-from app.models.all_models import User, ConflictItem
+from app.core.dependencies import get_current_user, check_project_access
+from app.models.all_models import User, UserRole, ConflictItem
 from app.schemas.all_schemas import ConflictItemResponse
 
 router = APIRouter(prefix="/conflicts", tags=["Conflict & Uncertainty Intelligence"])
@@ -20,6 +20,7 @@ def list_project_conflicts(
     current_user: User = Depends(get_current_user)
 ):
     """Retrieve all detected conflicting claims across project artifacts and code repositories."""
+    check_project_access(project_id, current_user, db)
     conflicts = db.query(ConflictItem).filter(ConflictItem.project_id == project_id).all()
     return conflicts
 
@@ -34,6 +35,11 @@ def resolve_conflict(
     conflict = db.query(ConflictItem).filter(ConflictItem.id == conflict_id).first()
     if not conflict:
         raise HTTPException(status_code=404, detail="Conflict record not found")
+
+    check_project_access(
+        conflict.project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value]
+    )
 
     conflict.resolution_status = "resolved"
     conflict.resolved_by = current_user.name

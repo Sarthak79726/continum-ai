@@ -25,13 +25,39 @@ class UserResponse(UserBase):
 
 class Token(BaseModel):
     access_token: str
-    token_type: str
+    token_type: str = "bearer"
     user: UserResponse
+    refresh_token: Optional[str] = None
 
 class TokenPayload(BaseModel):
     sub: Optional[str] = None
     role: Optional[str] = None
     exp: Optional[int] = None
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+class PasswordForgotRequest(BaseModel):
+    email: str
+
+class PasswordResetRequest(BaseModel):
+    token: str
+    new_password: str
+
+class UserSessionResponse(BaseModel):
+    id: int
+    device_info: Optional[str] = None
+    ip_address: Optional[str] = None
+    is_revoked: bool
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: datetime
+
+    model_config = {"from_attributes": True}
 
 # --- PROJECT & MEMBERSHIP ---
 class ProjectBase(BaseModel):

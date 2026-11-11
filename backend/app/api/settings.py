@@ -36,8 +36,8 @@ def get_system_settings_status(
         },
         "storage": {
             "vector_store": "ChromaDB Persistent Store",
-            "vector_dir": settings.CHROMA_PERSIST_DIRECTORY,
-            "upload_dir": settings.UPLOAD_DIRECTORY,
+            "vector_dir": settings.CHROMA_PERSIST_DIRECTORY if current_user.role == "ADMIN" else "[RESTRICTED]",
+            "upload_dir": settings.UPLOAD_DIRECTORY if current_user.role == "ADMIN" else "[RESTRICTED]",
             "database": "SQLite (SQLAlchemy with PostgreSQL Parity)"
         },
         "app_info": {

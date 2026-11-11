@@ -32,14 +32,28 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment
+# Environment & Secrets
 .env
+.env.*
 !.env.example
+*.pem
+*.key
+*.crt
 
 # Database & local vector storage
+*.db
 *.db-journal
+*.sqlite
+*.sqlite3
+continuum_ai.db
+backend/continuum_ai.db
+backend/data/*.db
 chroma_data/
+backend/data/chroma/
 uploads/
+backend/data/uploads/
+logs/
+*.log
 
 # IDE / OS
 .vscode/

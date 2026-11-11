@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, check_project_access
 from app.models.all_models import (
     User, UserRole, EmployeeProfile, ContinuationActionItem,
     HandoverLifecycleStatus
@@ -24,6 +24,7 @@ def list_project_employees(
     current_user: User = Depends(get_current_user)
 ):
     """List all employees associated with a project."""
+    check_project_access(project_id, current_user, db)
     employees = db.query(EmployeeProfile).filter(EmployeeProfile.project_id == project_id).all()
     results = []
     for emp in employees:
@@ -45,6 +46,10 @@ def create_employee_profile(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new employee profile under a project."""
+    check_project_access(
+        project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value]
+    )
     emp = EmployeeProfile(
         project_id=project_id,
         user_id=emp_in.user_id,
@@ -73,6 +78,8 @@ def get_employee_profile(
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
     
+    check_project_access(emp.project_id, current_user, db)
+
     succ_name = None
     if emp.assigned_successor_id:
         succ = db.query(EmployeeProfile).filter(EmployeeProfile.id == emp.assigned_successor_id).first()
@@ -94,6 +101,11 @@ def update_employee_profile(
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
+    check_project_access(
+        emp.project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value]
+    )
+
     for field, val in emp_update.model_dump(exclude_unset=True).items():
         setattr(emp, field, val)
 
@@ -112,6 +124,12 @@ def get_employee_passport(
     commits, PRs, API inventory, database schema, bugs & technical debt, blockers,
     and continuation action items.
     """
+    emp = db.query(EmployeeProfile).filter(EmployeeProfile.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    check_project_access(emp.project_id, current_user, db)
+
     try:
         data = passport_service.get_full_passport(employee_id, db)
         return data
@@ -128,6 +146,15 @@ def reconstruct_employee_knowledge(
     Trigger end-to-end knowledge reconstruction for an employee, analyzing
     authorized project evidence, code changes, and task history.
     """
+    emp = db.query(EmployeeProfile).filter(EmployeeProfile.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    check_project_access(
+        emp.project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value, UserRole.TEAM_MEMBER.value]
+    )
+
     try:
         data = passport_service.reconstruct_employee_knowledge(employee_id, db)
         return data
@@ -146,6 +173,11 @@ def initiate_employee_handover(
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
+    check_project_access(
+        emp.project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value]
+    )
+
     data = passport_service.initiate_handover(
         project_id=emp.project_id,
         departing_id=employee_id,
@@ -163,6 +195,12 @@ def acknowledge_employee_handover(
     current_user: User = Depends(get_current_user)
 ):
     """Acknowledge receipt of handover by the incoming successor."""
+    emp = db.query(EmployeeProfile).filter(EmployeeProfile.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    check_project_access(emp.project_id, current_user, db)
+
     try:
         res = passport_service.acknowledge_handover(employee_id, req.comments, db)
         return res
@@ -176,6 +214,12 @@ def get_employee_continuation_actions(
     current_user: User = Depends(get_current_user)
 ):
     """Retrieve continuation action items for an employee transition."""
+    emp = db.query(EmployeeProfile).filter(EmployeeProfile.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    check_project_access(emp.project_id, current_user, db)
+
     actions = db.query(ContinuationActionItem).filter(
         ContinuationActionItem.departing_employee_id == employee_id
     ).all()
@@ -192,6 +236,8 @@ def toggle_continuation_action(
     act = db.query(ContinuationActionItem).filter(ContinuationActionItem.id == action_id).first()
     if not act:
         raise HTTPException(status_code=404, detail="Action item not found")
+
+    check_project_access(act.project_id, current_user, db)
 
     act.is_completed = not act.is_completed
     act.completed_at = datetime.now(timezone.utc) if act.is_completed else None

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.core.dependencies import get_current_user, check_project_access
-from app.models.all_models import Task, User, AuditLog
+from app.models.all_models import Task, User, UserRole, AuditLog
 from app.schemas.all_schemas import TaskCreate, TaskUpdate, TaskResponse
 
 router = APIRouter(tags=["Tasks & Continuity Blueprint"])
@@ -26,7 +26,10 @@ def create_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    project = check_project_access(project_id, current_user, db)
+    project = check_project_access(
+        project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value, UserRole.TEAM_MEMBER.value]
+    )
 
     task = Task(
         project_id=project.id,
@@ -56,7 +59,10 @@ def update_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    check_project_access(task.project_id, current_user, db)
+    check_project_access(
+        task.project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value, UserRole.TEAM_MEMBER.value]
+    )
 
     if task_in.title is not None:
         task.title = task_in.title.strip()
@@ -87,7 +93,10 @@ def delete_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    check_project_access(task.project_id, current_user, db)
+    check_project_access(
+        task.project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value, UserRole.TEAM_MEMBER.value]
+    )
     db.delete(task)
     db.commit()
     return None

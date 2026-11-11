@@ -83,9 +83,11 @@ def list_project_handovers(
     current_user: User = Depends(get_current_user)
 ):
     project = check_project_access(project_id, current_user, db)
-    reports = db.query(HandoverReport).filter(
-        HandoverReport.project_id == project.id
-    ).order_by(HandoverReport.version.desc()).all()
+    query = db.query(HandoverReport).filter(HandoverReport.project_id == project.id)
+    if current_user.role == UserRole.INCOMING_MEMBER.value:
+        query = query.filter(HandoverReport.status == ReportStatus.APPROVED.value)
+
+    reports = query.order_by(HandoverReport.version.desc()).all()
 
     result = []
     for r in reports:
@@ -128,6 +130,12 @@ def get_handover_report(
         raise HTTPException(status_code=404, detail="Handover report not found")
 
     project = check_project_access(report.project_id, current_user, db)
+
+    if current_user.role == UserRole.INCOMING_MEMBER.value and report.status != ReportStatus.APPROVED.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Incoming team members can only access approved handover reports."
+        )
 
     reviews_list = [
         ReviewResponse(
@@ -338,6 +346,12 @@ def export_handover_pdf(
         raise HTTPException(status_code=404, detail="Handover report not found")
 
     check_project_access(report.project_id, current_user, db)
+
+    if current_user.role == UserRole.INCOMING_MEMBER.value and report.status != ReportStatus.APPROVED.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Incoming team members can only export approved handover reports."
+        )
 
     pdf_buffer = generate_handover_pdf(report.report_content)
     

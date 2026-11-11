@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 from app.database.session import get_db
 from app.core.dependencies import get_current_user, check_project_access
-from app.models.all_models import Project, User, Document, DocumentStatus
+from app.models.all_models import Project, User, UserRole, Document, DocumentStatus
 from app.services.knowledge_extractor.extractor import KnowledgeExtractor
 
 router = APIRouter(tags=["AI Reconstruction"])
@@ -20,7 +20,10 @@ def trigger_project_reconstruction(
     Processes all indexed project documents, extracts tasks, decisions, risks,
     dependencies, unresolved questions, links source evidence, and updates project knowledge.
     """
-    project = check_project_access(project_id, current_user, db)
+    project = check_project_access(
+        project_id, current_user, db,
+        allowed_roles=[UserRole.ADMIN.value, UserRole.PROJECT_MANAGER.value, UserRole.TEAM_MEMBER.value]
+    )
 
     # Check if project has any documents
     docs = db.query(Document).filter(

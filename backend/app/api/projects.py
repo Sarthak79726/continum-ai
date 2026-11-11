@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.dependencies import get_current_user, check_project_access
+from app.core.dependencies import get_current_user, check_project_access, require_role
 from app.models.all_models import (
     Project, ProjectMembership, Document, Task, Risk, User, UserRole, AuditLog
 )
@@ -207,4 +207,33 @@ def get_project_audit_logs(
         "user_name": log.user.name if log.user else "System",
         "created_at": log.created_at
     } for log in logs]
+
+@router.get("/audit-logs/all")
+def get_global_audit_logs(
+    page: int = 1,
+    page_size: int = 50,
+    action: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.ADMIN.value]))
+):
+    """Retrieve global system audit logs with pagination (Admin only)."""
+    query = db.query(AuditLog)
+    if action:
+        query = query.filter(AuditLog.action == action)
+    total = query.count()
+    logs = query.order_by(AuditLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [{
+            "id": log.id,
+            "action": log.action,
+            "details": log.details,
+            "user_id": log.user_id,
+            "user_name": log.user.name if log.user else "System",
+            "project_id": log.project_id,
+            "created_at": log.created_at
+        } for log in logs]
+    }
 

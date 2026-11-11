@@ -74,6 +74,44 @@ class User(Base):
     documents = relationship("Document", back_populates="uploader")
     reviews = relationship("Review", back_populates="reviewer")
     reports = relationship("HandoverReport", back_populates="creator")
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+    password_resets = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    refresh_token_hash = Column(String(255), unique=True, index=True, nullable=False)
+    device_info = Column(String(255), nullable=True)
+    ip_address = Column(String(50), nullable=True)
+    is_revoked = Column(Boolean, default=False, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_used_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="sessions")
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(255), unique=True, index=True, nullable=False)
+    is_used = Column(Boolean, default=False, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="password_resets")
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(120), index=True, nullable=False)
+    ip_address = Column(String(50), nullable=True)
+    success = Column(Boolean, default=False, nullable=False)
+    attempted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Project(Base):
     __tablename__ = "projects"

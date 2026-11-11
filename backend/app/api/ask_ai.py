@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, check_project_access
 from app.models.all_models import User
 from app.schemas.all_schemas import AskProjectAIRequest, AskProjectAIResponse
 from app.services.ai_engine.ask_project_ai import ask_ai_service
@@ -21,6 +21,8 @@ def ask_project_ai(
     """
     if not req.question or not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+    check_project_access(req.project_id, current_user, db)
 
     res = ask_ai_service.answer_question(
         project_id=req.project_id,
