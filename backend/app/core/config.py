@@ -56,13 +56,22 @@ class Settings(BaseSettings):
                 or len(self.JWT_SECRET_KEY) < 32
             ):
                 raise RuntimeError(
-                    "FATAL SECURITY CONFIGURATION: Insecure or default JWT_SECRET_KEY in production! "
-                    "You must configure a strong random secret key of at least 32 characters in .env."
+                    "CRITICAL SECURITY FAILURE: Insecure or default JWT_SECRET_KEY detected in production. "
+                    "You must provide a high-entropy secret key of at least 32 characters via environment variable."
                 )
+
             if "*" in self.CORS_ORIGINS:
                 raise RuntimeError(
-                    "FATAL SECURITY CONFIGURATION: Wildcard '*' CORS origin is strictly forbidden in production with credentials."
+                    "CRITICAL SECURITY FAILURE: Wildcard '*' CORS origin is forbidden in production mode with credentials enabled. "
+                    "Specify exact allowed origins via CORS_ORIGINS environment variable."
                 )
+
+            # Automatically ensure Render domains are allowed for unified service
+            render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+            if render_host:
+                render_origin = f"https://{render_host}"
+                if render_origin not in self.CORS_ORIGINS:
+                    self.CORS_ORIGINS.append(render_origin)
 
 settings = Settings()
 

@@ -55,6 +55,7 @@ backend/data/uploads/
 logs/
 *.log
 
+
 # IDE / OS
 .vscode/
 .idea/

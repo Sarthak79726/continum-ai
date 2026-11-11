@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.database.session import engine, Base, SessionLocal
 from app.core.security import get_password_hash
-from app.models.all_models import User, UserRole
+from app.models.all_models import User, UserRole, Project
 
 # Import API Routers
 from app.api.auth import router as auth_router
@@ -51,6 +51,19 @@ def seed_default_admin():
             )
             db.add(admin_user)
             db.commit()
+            db.refresh(admin_user)
+
+        # Ensure demo project exists for evaluation
+        if db.query(Project).count() == 0:
+            try:
+                from app.services.sample_data.generator import load_sample_dataset
+                logger.info("Initializing baseline demonstration project for evaluation...")
+                load_sample_dataset(db, admin_user)
+                logger.info("Baseline demonstration project initialized successfully.")
+            except Exception as e:
+                logger.warning(f"Demo project auto-seed notice: {e}")
+    except Exception as ex:
+        logger.warning(f"Database bootstrap notice: {ex}")
     finally:
         db.close()
 
@@ -159,7 +172,7 @@ if os.path.exists(frontend_dist):
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         if full_path.startswith("api"):
-            return {"error": "Not Found"}
+            return JSONResponse(status_code=404, content={"detail": "API endpoint not found"})
         target_file = os.path.join(frontend_dist, full_path)
         if os.path.isfile(target_file):
             return FileResponse(target_file)
